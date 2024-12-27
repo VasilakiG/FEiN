@@ -25,3 +25,9 @@ doc/api/
 
 .flutter-plugins
 .flutter-plugins-dependencies
+
+
+# Avoid committing project-specific files:
+__pycache__/
+pgdata/
+venv/

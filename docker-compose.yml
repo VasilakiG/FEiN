@@ -1,0 +1,31 @@
+services:
+  db:
+    image: postgres:latest
+    container_name: fein1
+    environment:
+      POSTGRES_USER: vasilaki
+      POSTGRES_PASSWORD: adminpassword
+      POSTGRES_DB: fein1
+    ports:
+      - "5432:5432"
+    networks:
+      - fein_network
+    volumes:
+      - ./pgdata:/var/lib/postgresql/data
+
+
+  app:
+    build: .
+    container_name: fein_prototype_app
+    environment:
+      DATABASE_URL: postgresql://vasilaki:adminpassword@db:5432/fein1
+    depends_on:
+      - db
+    ports:
+      - "8000:8000"
+    networks:
+      - fein_network
+
+networks:
+  fein_network:
+    driver: bridge
