@@ -1,0 +1,35 @@
+Usefull docker commands:
+
+1. Get IP address of container
+docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' fein1
+
+2. Enter a container with bash
+docker exec -it fein1 bash
+
+3. Start query mode of the database
+psql -U vasilaki -d fein1
+
+4. Restart the specific docker container
+docker restart fein_prototype_app
+
+5. See if the containers are in the same network
+docker network inspect bridge
+
+6. Connect the specified container to the specified network(first network name, then container)
+docker network connect bridge fein_prototype_app
+
+7. Build the containers
+docker-compose up --build
+
+8. Perform after exiting the containers
+docker-compose down
+
+9. See the hosts of a docker container
+docker exec -it fein_prototype_app cat /etc/hosts
+
+10. Do a SELECT query in the database
+psql -U vasilaki -d fein1 -c '\x' -c 'SELECT * FROM "user";'
+
+11. Deleting from a database and restarting the auto-increment
+psql -U vasilaki -d fein1 -c 'TRUNCATE TABLE "user" RESTART IDENTITY CASCADE;'
+
