@@ -89,16 +89,23 @@ class AuthResponse(BaseModel):
 
 # Dependency to get the current user
 def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
-    payload = decode_access_token(token)
-    user_id = payload.get("sub")
-    if user_id is None:
-        raise HTTPException(status_code=401, detail="Invalid authentication credentials")
-
-    user = db.query(User).filter(User.user_id == user_id).first()
-    if not user:
-        raise HTTPException(status_code=401, detail="Invalid authentication credentials")
-
-    return user
+    """
+    Retrieves the current user based on the access token.
+    """
+    try:
+        payload = decode_access_token(token)
+        user_id = payload.get("sub")
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Invalid authentication credentials", headers={"WWW-Authenticate": "Bearer"},)
+        
+        user = db.query(User).filter(User.user_id == user_id).first()
+        if not user:
+            raise HTTPException(status_code=401, detail="Invalid authentication credentials",  headers={"WWW-Authenticate": "Bearer"},)
+        
+        return user
+    except Exception as e:
+        print(f"Error decoding token or fetching user: {e}")
+        raise HTTPException(status_code=401, detail="Invalid authentication credentials", headers={"WWW-Authenticate": "Bearer"},)
 
 # Routes
 @app.get("/")
@@ -124,7 +131,7 @@ def register(auth_request: AuthRequest, db: Session = Depends(get_db)):
     db.refresh(new_user)
 
     # Return access token
-    access_token = create_access_token({"sub": new_user.user_id})
+    access_token = create_access_token({"sub": new_user.user_id, "email": new_user.email})
     return {"access_token": access_token, "token_type": "bearer"}
 
 @app.post("/auth/login/", response_model=AuthResponse)
@@ -135,7 +142,7 @@ def login(auth_request: AuthRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=401, detail="Invalid email or password")
 
     # Return access token
-    access_token = create_access_token({"sub": user.user_id})
+    access_token = create_access_token({"sub": user.user_id, "email": user.email})
     return {"access_token": access_token, "token_type": "bearer"}
 
 @app.get("/admin/accounts/", response_model=List[TransactionAccountResponse])
@@ -146,8 +153,8 @@ def admin_get_all_accounts(user: User = Depends(get_current_user), db: Session =
 
 
 @app.post("/accounts/", response_model=TransactionAccountResponse)
-def create_account(account: TransactionAccountCreate, db: Session = Depends(get_db)):
-    new_account = TransactionAccount(account_name=account.account_name, balance=account.balance)
+def create_account(account: TransactionAccountCreate, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    new_account = TransactionAccount(account_name=account.account_name, balance=account.balance, user_id=user.user_id)
     db.add(new_account)
     db.commit()
     db.refresh(new_account)

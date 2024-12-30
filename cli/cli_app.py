@@ -1,27 +1,35 @@
 import requests
-from app.auth import is_admin
+import jwt
+from app.auth import is_admin, decode_access_token
 
 BASE_URL = "http://localhost:8000"
+access_token = None # Global variable for the access token
 
 def main_menu():
-    print("\nMain Menu")
-    print("1. Register")
-    print("2. Login")
-    print("3. Exit")
-    choice = input("Choose an option: ")
+    """Displays the main menu for registration and login."""
+    global access_token
+    while True:
+        print("\nMain Menu")
+        print("1. Register")
+        print("2. Login")
+        print("3. Exit")
+        choice = input("Choose an option: ")
 
-    if choice == "1":
-        register()
-    elif choice == "2":
-        token = login()
-        if token:
-            user_menu(token)
-    elif choice == "3":
-        print("Exiting...")
-    else:
-        print("Invalid choice. Please try again.")
+        if choice == "1":
+            register()
+        elif choice == "2":
+            token = login()
+            if token:
+                access_token = token
+                handle_menu_after_login()
+        elif choice == "3":
+            print("Exiting...")
+            break
+        else:
+            print("Invalid choice. Please try again.")
 
 def register():
+    """Handles user registration."""
     print("\nRegister")
     user_name = input("Enter your username: ")
     email = input("Enter your email: ")
@@ -38,27 +46,58 @@ def register():
     else:
         print("Registration failed. Please try again.")
         print(f"Error: {response.json().get('detail', 'Unknown error')}")
-    
+
 def login():
+    """Handles user login and returns the access token."""
     print("\nLog in")
     email = input("Enter your email: ")
     password = input("Enter your password: ")
 
-    response = requests.get(f"{BASE_URL}/auth/login/", json={
+    response = requests.post(f"{BASE_URL}/auth/login/", json={
         "email": email,
         "password": password
     })
 
     if response.status_code == 200:
         data = response.json()
-        print("Log in successful.")
+        print(f"Log in successful. Access Token: {data['access_token']}")
         return data["access_token"]
     else:
         print("Invalid login credentials.")
         return None
 
+def handle_menu_after_login():
+    """Routes the user to the appropriate menu based on their role."""
+    global access_token
+    # Decode the JWT to extract user information
+    try:
+        payload = decode_access_token(access_token)   
+        user_id = payload.get("sub")  # Extract user_id from the token
+        email = payload.get("email")  # Extract email from the token
+        
+        if not user_id or not email:
+            raise ValueError("Token is missing required fields.")
+        
+        print(f"User ID from token: {user_id}, Email: {email}")
 
-def admin_menu(user_id):
+        # Check if the user is an admin
+        if is_admin(email):
+            admin_menu()
+        else:
+            user_menu()
+    except jwt.ExpiredSignatureError:
+        print("Session expired. Please log in again.")
+        access_token = None
+    except ValueError as e:
+        print(f"Token validation error: {str(e)}. Logging out.")
+        access_token = None
+    except Exception as e:
+        print(f"An error occurred: {str(e)}. Logging out.")
+        access_token = None
+
+def admin_menu():
+    """Displays the admin menu."""
+    global access_token
     while True:
         print("\nAdmin Menu")
         print("1. View All Transaction Accounts")
@@ -69,13 +108,16 @@ def admin_menu(user_id):
             admin_view_all_accounts()
         elif choice == "2":
             print("Logging out...")
+            access_token = None
             break
         else:
             print("Invalid choice. Please try again.")
 
 def admin_view_all_accounts():
+    """Fetches and displays all transaction accounts for admin users."""
+    headers = {"Authorization": f"Bearer {access_token}"}
     print("\nAll Transaction Accounts")
-    response = requests.get(f"{BASE_URL}/admin/accounts/")
+    response = requests.get(f"{BASE_URL}/admin/accounts/", headers=headers)
 
     if response.status_code == 200:
         accounts = response.json()
@@ -85,7 +127,9 @@ def admin_view_all_accounts():
         print("Failed to retrieve accounts.")
         print(f"Error: {response.json().get('detail', 'Unknown error')}")
 
-def user_menu(token):
+def user_menu():
+    """Displays the user menu."""
+    global access_token
     while True:
         print("\nUser Menu")
         print("1. Add Transaction Account")
@@ -126,11 +170,13 @@ def user_menu(token):
             view_reports()
         elif choice == "12":
             print("Logging out...")
+            access_token = None
             break
         else:
             print("Invalid choice. Please try again.")
 
 def add_transaction_account():
+    headers = {"Authorization": f"Bearer {access_token}"}
     print("\nAdd Transaction Account")
     account_name = input("Enter account name: ")
     balance = float(input("Enter balance: "))
@@ -138,7 +184,7 @@ def add_transaction_account():
     response = requests.post(f"{BASE_URL}/accounts/", json={
         "account_name": account_name,
         "balance": balance
-    })
+    }, headers=headers)
 
     if response.status_code == 200:
         print("Transaction account added successfully.")
@@ -146,9 +192,10 @@ def add_transaction_account():
         print("Failed to add transaction account.")
         print(f"Error: {response.json().get('detail', 'Unknown error')}")
 
-def view_transaction_accounts(user_id):
+def view_transaction_accounts():
+    headers = {"Authorization": f"Bearer {access_token}"}
     print("\nTransaction Accounts")
-    response = requests.get(f"{BASE_URL}/accounts/", params={"user_id": user_id})
+    response = requests.get(f"{BASE_URL}/accounts/", headers=headers)
 
     if response.status_code == 200:
         accounts = response.json()
