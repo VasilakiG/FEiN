@@ -122,7 +122,9 @@ def admin_view_all_accounts():
     if response.status_code == 200:
         accounts = response.json()
         for account in accounts:
-            print(f"Account ID: {account['transaction_account_id']}, Name: {account['account_name']}, Balance: {account['balance']}")
+            print(f"Account ID: {account['transaction_account_id']}\n"
+                 +f"    Name: {account['account_name']}\n"
+                 +f"    Balance: {account['balance']}\n")
     else:
         print("Failed to retrieve accounts.")
         print(f"Error: {response.json().get('detail', 'Unknown error')}")
@@ -209,17 +211,19 @@ def view_transaction_accounts():
         print(f"Error: {response.json().get('detail', 'Unknown error')}")
 
 def add_transaction():
+    headers = {"Authorization": f"Bearer {access_token}"}
+    
     print("\nAdd Transaction")
     transaction_name = input("Enter transaction name: ")
     amount = float(input("Enter amount: "))
-    date = input("Enter date (YYYY-MM-DDTHH:MM:SS): ")
+    date = input("Enter date (YYYY-MM-DDTHH:MM:SS+HH:MM): ")
 
-    response = requests.get(f"{BASE_URL}/transactions/", json={
+    response = requests.post(f"{BASE_URL}/transactions/", json={
         "transaction_name": transaction_name,
         "amount": amount,
         "net_amount": 0,
         "date": date
-    })
+    }, headers=headers)
 
     if response.status_code == 200:
         print("Transaction added successfully.")
@@ -228,17 +232,33 @@ def add_transaction():
         print(f"Error: {response.json().get('detail', 'Unknown error')}")
 
 def view_transactions():
-    print("\nView Transactions")
-    response = requests.get(f"{BASE_URL}/transactions/")
+    headers = {"Authorization": f"Bearer {access_token}"}
+    print("\nYour Transactions:")
+    response = requests.get(f"{BASE_URL}/transactions/", headers=headers)
 
     if response.status_code == 200:
         transactions = response.json()
         for transaction in transactions:
             print(f"Transaction ID: {transaction['transaction_id']}")
-            print(f"Transaction Name: {transaction['transaction_name']}")
-            print(f"Amount: {transaction['amount']}")
-            print(f"Net Amount: {transaction['net_amount']}")
-            print(f"Date: {transaction['date']}")
+            print(f"    Name: {transaction['transaction_name']}")
+            print(f"    Amount: {transaction['amount']}")
+            print(f"    Net Amount: {transaction['net_amount']}")
+            print(f"    Date: {transaction['date']}")
+            print(f"    Breakdowns:")
+
+            breakdown_response = requests.get(
+                f"{BASE_URL}/transactions/{transaction['transaction_id']}/breakdowns",
+                headers=headers
+            )
+
+            if breakdown_response.status_code == 200:
+                breakdowns = breakdown_response.json()
+                for breakdown in breakdowns:
+                    print(f"        Account ID: {breakdown['transaction_account_id']}")
+                    print(f"        Earned: {breakdown['earned_amount']}")
+                    print(f"        Spent: {breakdown['spent_amount']}")
+            else:
+                print(f"        Could not fetch breakdowns. Error: {breakdown_response.json().get('detail', 'Unknown error')}")
             print()
     else:
         print("Failed to retrieve transactions.")
@@ -250,7 +270,7 @@ def modify_transaction():
     transaction_name = input("Enter new transaction name (or leave blank): ")
     amount = input("Enter new amount (or leave blank): ")
     net_amount = input("Enter new net amount (or leave blank): ")
-    date = input("Enter new date (YYYY-MM-DDTHH:MM:SS) (or leave blank): ")
+    date = input("Enter new date (YYYY-MM-DDTHH:MM:SS+HH:MM) (or leave blank): ")
 
     data = {}
     if transaction_name:

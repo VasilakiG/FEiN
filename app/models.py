@@ -35,7 +35,7 @@ class Transaction(Base):
     transaction_name = Column(String(100), nullable=False)
     amount = Column(Numeric(10, 2), nullable=False)
     net_amount = Column(Numeric(10, 2), nullable=False)
-    date = Column(DateTime, nullable=False)
+    date = Column(DateTime(timezone=True), nullable=False)
     breakdowns = relationship("TransactionBreakdown", back_populates="transaction")
     tags = relationship(
         "Tag", secondary="tag_assigned_to_transaction", back_populates="transactions"

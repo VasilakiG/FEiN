@@ -39,11 +39,19 @@ class TransactionAccountResponse(BaseModel):
     class Config:
         from_attributes = True
 
+class TransactionBreakdownResponse(BaseModel):
+    transaction_account_id: int
+    earned_amount: float
+    spent_amount: float
+
+    class Config:
+        from_attributes = True
+
 class TransactionCreate(BaseModel):
     transaction_name: str
     amount: float
     net_amount: float
-    date: datetime  # Use this format for date strings "2024-12-21 12:00:00+02:00"
+    date: datetime  # Use this format for date strings "2024-12-21T12:00:00+02:00"
 
 class TransactionUpdate(BaseModel):
     transaction_name: str = None
@@ -178,10 +186,23 @@ def create_transaction(transaction: TransactionCreate, db: Session = Depends(get
     return new_transaction
 
 @app.get("/transactions/", response_model=List[TransactionResponse])
-def get_transactions(db: Session = Depends(get_db)):
-    transactions = db.query(Transaction).all()
-    
-    # Convert datetime fields to strings manually
+def get_transactions(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """
+    Fetch transactions based on user role.
+    - Admin: Fetch all transactions.
+    - Regular User: Fetch transactions tied to the user's accounts via transaction breakdowns.
+    """
+    if is_admin(user.email):
+        transactions = db.query(Transaction).all()
+    else:
+        transactions = (
+            db.query(Transaction)
+            .join(TransactionBreakdown, Transaction.transaction_id == TransactionBreakdown.transaction_id)
+            .join(TransactionAccount, TransactionBreakdown.transaction_account_id == TransactionAccount.transaction_account_id)
+            .filter(TransactionAccount.user_id == user.user_id)
+            .all()
+        )
+
     return [
         {
             **transaction.__dict__,
@@ -189,6 +210,25 @@ def get_transactions(db: Session = Depends(get_db)):
         }
         for transaction in transactions
     ]
+
+@app.get("/transactions/{transaction_id}/breakdowns", response_model=List[TransactionBreakdownResponse])
+def get_transaction_breakdowns(transaction_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """
+    Fetch transaction breakdowns for a specific transaction.
+    """
+    breakdowns = (
+        db.query(TransactionBreakdown)
+        .join(TransactionAccount, TransactionBreakdown.transaction_account_id == TransactionAccount.transaction_account_id)
+        .filter(TransactionBreakdown.transaction_id == transaction_id)
+        .filter(TransactionAccount.user_id == user.user_id)
+        .all()
+    )
+
+    if not breakdowns:
+        raise HTTPException(status_code=404, detail="No breakdowns found for this transaction.")
+
+    return breakdowns
+
 
 @app.put("/transactions/{transaction_id}", response_model=TransactionResponse)
 def update_transaction(transaction_id: int, transaction_update: TransactionUpdate, db: Session = Depends(get_db)):
