@@ -47,11 +47,14 @@ class TransactionBreakdownResponse(BaseModel):
     class Config:
         from_attributes = True
 
-class TransactionCreate(BaseModel):
+class TransactionCreateRequest(BaseModel):
     transaction_name: str
-    amount: float
-    net_amount: float
-    date: datetime  # Use this format for date strings "2024-12-21T12:00:00+02:00"
+    amount: float = 0.0  # Default to 0 if not provided
+    date: Optional[datetime] = None  # Default to None, will use current time if not provided
+    tag_id: Optional[int] = None  # Optional tag
+    target_account_id: int  # Mandatory target account
+    breakdowns: Optional[List[TransactionBreakdownResponse]] = None  # Optional list of breakdowns
+
 
 class TransactionUpdate(BaseModel):
     transaction_name: str = None
@@ -173,16 +176,68 @@ def get_accounts(user: User = Depends(get_current_user), db: Session = Depends(g
     return db.query(TransactionAccount).filter(TransactionAccount.user_id == user.user_id).all()
 
 @app.post("/transactions/", response_model=TransactionResponse)
-def create_transaction(transaction: TransactionCreate, db: Session = Depends(get_db)):
+def create_transaction(transaction_request: TransactionCreateRequest, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """
+    Create a transaction and associate it with the user's accounts via breakdowns.
+    """
+    # Validate target account ownership
+    target_account = db.query(TransactionAccount).filter(
+        TransactionAccount.transaction_account_id == transaction_request.target_account_id,
+        TransactionAccount.user_id == user.user_id
+    ).first()
+    if not target_account:
+        raise HTTPException(status_code=403, detail="Access denied to target account.")
+
+    # Create transaction
     new_transaction = Transaction(
-        transaction_name=transaction.transaction_name,
-        amount=transaction.amount,
-        net_amount=transaction.net_amount,
-        date=transaction.date
+        transaction_name=transaction_request.transaction_name,
+        amount=transaction_request.amount,
+        net_amount=0.0,  # Will be updated based on breakdowns
+        date=transaction_request.date or datetime.utcnow(),  # Use current UTC time if not provided
     )
     db.add(new_transaction)
     db.commit()
     db.refresh(new_transaction)
+
+    # Associate a tag, if provided
+    if transaction_request.tag_id:
+        tag = db.query(Tag).filter(Tag.tag_id == transaction_request.tag_id).first()
+        if tag:
+            tag_assignment = TagAssignedToTransaction(
+                transaction_id=new_transaction.transaction_id,
+                tag_id=tag.tag_id
+            )
+            db.add(tag_assignment)
+
+    # Add breakdowns
+    net_amount = 0.0
+    if transaction_request.breakdowns:
+        for breakdown in transaction_request.breakdowns:
+            # Validate breakdown account ownership
+            breakdown_account = db.query(TransactionAccount).filter(
+                TransactionAccount.transaction_account_id == breakdown.transaction_account_id,
+                TransactionAccount.user_id == user.user_id
+            ).first()
+            if not breakdown_account:
+                raise HTTPException(status_code=403, detail=f"Access denied to breakdown account {breakdown.transaction_account_id}.")
+
+            # Create breakdown
+            new_breakdown = TransactionBreakdown(
+                transaction_id=new_transaction.transaction_id,
+                transaction_account_id=breakdown.transaction_account_id,
+                earned_amount=breakdown.earned_amount,
+                spent_amount=breakdown.spent_amount
+            )
+            db.add(new_breakdown)
+
+            # Calculate net amount
+            net_amount += breakdown.earned_amount - breakdown.spent_amount
+
+    # Update transaction's net amount
+    new_transaction.net_amount = net_amount
+    db.commit()
+    db.refresh(new_transaction)
+
     return new_transaction
 
 @app.get("/transactions/", response_model=List[TransactionResponse])
@@ -284,10 +339,17 @@ def assign_tag_to_transaction(tag_assign: TagAssign, db: Session = Depends(get_d
     db.commit()
     return {"message": "Tag assigned to transaction successfully"}
 
-@app.get("/transactions/{transaction_id}/tags", response_model=List[TagResponse])
-def get_transaction_tags(transaction_id: int, db: Session = Depends(get_db)):
+@app.get("/tags/transaction/{transaction_id}", response_model=List[TagResponse])
+def get_transaction_tags_for_user(transaction_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     transaction = db.query(Transaction).filter(Transaction.transaction_id == transaction_id).first()
     if not transaction:
         raise HTTPException(status_code=404, detail="Transaction not found")
+
+    # Ensure transaction belongs to the authenticated user
+    if not db.query(TransactionAccount).filter(
+        TransactionAccount.transaction_account_id == transaction_id,
+        TransactionAccount.user_id == user.user_id,
+    ).first():
+        raise HTTPException(status_code=403, detail="Access denied")
 
     return transaction.tags

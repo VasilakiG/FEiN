@@ -215,15 +215,34 @@ def add_transaction():
     
     print("\nAdd Transaction")
     transaction_name = input("Enter transaction name: ")
-    amount = float(input("Enter amount: "))
-    date = input("Enter date (YYYY-MM-DDTHH:MM:SS+HH:MM): ")
+    amount = float(input("Enter amount (default 0): ") or 0)
+    date = input("Enter date (YYYY-MM-DDTHH:MM:SS+HH:MM+HH:MM: ")
+    target_account_id = int(input("Enter target transaction account ID: "))
+    tag_id = int(input("Enter tag ID (leave blank for none): ") or 0)
 
-    response = requests.post(f"{BASE_URL}/transactions/", json={
+    breakdowns = []
+    add_breakdown = input("Do you want to add breakdowns? (yes/no): ").lower()
+    while add_breakdown == "yes":
+        breakdown_account_id = int(input("Enter breakdown account ID: "))
+        earned_amount = float(input("Enter earned amount (default 0): ") or 0)
+        spent_amount = float(input("Enter spent amount (default 0): ") or 0)
+        breakdowns.append({
+            "transaction_account_id": breakdown_account_id,
+            "earned_amount": earned_amount,
+            "spent_amount": spent_amount
+        })
+        add_breakdown = input("Add another breakdown? (yes/no): ").lower()
+
+    payload = {
         "transaction_name": transaction_name,
         "amount": amount,
-        "net_amount": 0,
-        "date": date
-    }, headers=headers)
+        "date": date,
+        "target_account_id": target_account_id,
+        "tag_id": tag_id or None,
+        "breakdowns": breakdowns
+    }
+
+    response = requests.post(f"{BASE_URL}/transactions/", json=payload, headers=headers)
 
     if response.status_code == 200:
         print("Transaction added successfully.")
@@ -342,17 +361,27 @@ def assign_tag_to_transaction():
         print(f"Error: {response.json().get('detail', 'Unknown error')}")
 
 def view_transaction_tags():
+    headers = {"Authorization": f"Bearer {access_token}"}
+
     print("\nView Transaction Tags")
     transaction_id = int(input("Enter transaction ID to view its tags: "))
 
-    response = requests.get(f"{BASE_URL}/transactions/{transaction_id}/tags")
+    response = requests.get(f"{BASE_URL}/transactions/{transaction_id}", headers=headers)
 
     if response.status_code == 200:
-        tags = response.json()
-        for tag in tags:
-            print(f"ID: {tag['tag_id']}, Name: {tag['tag_name']}")
+        transaction = response.json()
+        print(f"Transaction: {transaction['transaction_name']}")
+
+        # Fetch tags linked to the transaction
+        tags_response = requests.get(f"{BASE_URL}/tags/transaction/{transaction_id}", headers=headers)
+        if tags_response.status_code == 200:
+            tags = tags_response.json()
+            for tag in tags:
+                print(f"Tag ID: {tag['tag_id']}, Name: {tag['tag_name']}")
+        else:
+            print(f"Failed to retrieve tags. Error: {tags_response.json().get('detail', 'Unknown error')}")
     else:
-        print(f"Error retrieving tags for transaction. {response.json().get('detail', 'Unknown error')}")
+        print(f"Failed to retrieve transaction. Error: {response.json().get('detail', 'Unknown error')}")
 
 def view_reports():
     print("\nView Reports")
