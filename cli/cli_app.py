@@ -212,11 +212,11 @@ def view_transaction_accounts():
 
 def add_transaction():
     headers = {"Authorization": f"Bearer {access_token}"}
-    
+
     print("\nAdd Transaction")
     transaction_name = input("Enter transaction name: ")
     amount = float(input("Enter amount (default 0): ") or 0)
-    date = input("Enter date (YYYY-MM-DDTHH:MM:SS+HH:MM+HH:MM: ")
+    date = input("Enter date (YYYY-MM-DDTHH:MM:SS+HH:MM: ")
     target_account_id = int(input("Enter target transaction account ID: "))
     tag_id = int(input("Enter tag ID (leave blank for none): ") or 0)
 
