@@ -284,6 +284,8 @@ def view_transactions():
         print(f"Error: {response.json().get('detail', 'Unknown error')}")
 
 def modify_transaction():
+    headers = {"Authorization": f"Bearer {access_token}"}
+
     print("\nModify Transaction")
     transaction_id = int(input("Enter transaction ID to modify: "))
     transaction_name = input("Enter new transaction name (or leave blank): ")
@@ -291,6 +293,7 @@ def modify_transaction():
     net_amount = input("Enter new net amount (or leave blank): ")
     date = input("Enter new date (YYYY-MM-DDTHH:MM:SS+HH:MM) (or leave blank): ")
 
+    # Build the request payload
     data = {}
     if transaction_name:
         data["transaction_name"] = transaction_name
@@ -301,25 +304,30 @@ def modify_transaction():
     if date:
         data["date"] = date
 
-    response = requests.put(f"{BASE_URL}/transactions/{transaction_id}", json=data)
+    # Make the PUT request with the Authorization header
+    response = requests.put(f"{BASE_URL}/transactions/{transaction_id}", json=data, headers=headers)
 
     if response.status_code == 200:
         print("Transaction modified successfully.")
     else:
         print("Failed to modify transaction.")
-        print(f"Error: {response.json().get('detail', 'Unknown error')}")
+        error_message = response.json().get('detail', 'Unknown error')
+        print(f"Error: {error_message}")
 
 def delete_transaction():
+    headers = {"Authorization": f"Bearer {access_token}"}
+
     print("\nDelete Transaction")
     transaction_id = int(input("Enter transaction ID to delete: "))
 
-    response = requests.delete(f"{BASE_URL}/transactions/{transaction_id}")
+    response = requests.delete(f"{BASE_URL}/transactions/{transaction_id}", headers=headers)
 
     if response.status_code == 200:
         print("Transaction deleted successfully.")
     else:
         print("Failed to delete transaction.")
-        print(f"Error: {response.json().get('detail', 'Unknown error')}")
+        error_message = response.json().get('detail', 'Unknown error')
+        print(f"Error: {error_message}")
 
 def add_tag():
     print("\nAdd Tag")

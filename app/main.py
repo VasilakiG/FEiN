@@ -286,11 +286,28 @@ def get_transaction_breakdowns(transaction_id: int, user: User = Depends(get_cur
 
 
 @app.put("/transactions/{transaction_id}", response_model=TransactionResponse)
-def update_transaction(transaction_id: int, transaction_update: TransactionUpdate, db: Session = Depends(get_db)):
-    transaction = db.query(Transaction).filter(Transaction.transaction_id == transaction_id).first()
+def update_transaction(
+    transaction_id: int,
+    transaction_update: TransactionUpdate, 
+    user: User = Depends(get_current_user), 
+    db: Session = Depends(get_db)
+):
+    """
+    Update a transaction only if it belongs to the logged-in user.
+    """
+    # Check if the transaction exists and belongs to the user
+    transaction = (
+        db.query(Transaction)
+        .join(TransactionBreakdown, Transaction.transaction_id == TransactionBreakdown.transaction_id)
+        .join(TransactionAccount, TransactionBreakdown.transaction_account_id == TransactionAccount.transaction_account_id)
+        .filter(Transaction.transaction_id == transaction_id)
+        .filter(TransactionAccount.user_id == user.user_id)
+        .first()
+    )
     if not transaction:
-        raise HTTPException(status_code=404, detail="Transaction not found")
+        raise HTTPException(status_code=404, detail="Transaction not found or access denied.")
 
+    # Update transaction fields
     for key, value in transaction_update.dict(exclude_unset=True).items():
         setattr(transaction, key, value)
 
@@ -299,10 +316,26 @@ def update_transaction(transaction_id: int, transaction_update: TransactionUpdat
     return transaction
 
 @app.delete("/transactions/{transaction_id}")
-def delete_transaction(transaction_id: int, db: Session = Depends(get_db)):
-    transaction = db.query(Transaction).filter(Transaction.transaction_id == transaction_id).first()
+def delete_transaction(
+    transaction_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Delete a transaction only if it belongs to the logged-in user.
+    """
+    # Check if the transaction exists and belongs to the user
+    transaction = (
+        db.query(Transaction)
+        .join(TransactionBreakdown, Transaction.transaction_id == TransactionBreakdown.transaction_id)
+        .join(TransactionAccount, TransactionBreakdown.transaction_account_id == TransactionAccount.transaction_account_id)
+        .filter(Transaction.transaction_id == transaction_id)
+        .filter(TransactionAccount.user_id == user.user_id)
+        .first()
+    )
+
     if not transaction:
-        raise HTTPException(status_code=404, detail="Transaction not found")
+        raise HTTPException(status_code=404, detail="Transaction not found or access denied.")
 
     db.delete(transaction)
     db.commit()
