@@ -241,20 +241,31 @@ def create_transaction(transaction_request: TransactionCreateRequest, user: User
     return new_transaction
 
 @app.get("/transactions/", response_model=List[TransactionResponse])
-def get_transactions(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def get_transactions(
+    user: User = Depends(get_current_user), 
+    db: Session = Depends(get_db)
+):
     """
-    Fetch transactions based on user role.
-    - Admin: Fetch all transactions.
-    - Regular User: Fetch transactions tied to the user's accounts via transaction breakdowns.
+    Fetch transactions based on user role, excluding placeholder transactions.
+    - Admin: Fetch all non-placeholder transactions.
+    - Regular User: Fetch non-placeholder transactions tied to the user's accounts via transaction breakdowns.
     """
+    query = db.query(Transaction)
+    
     if is_admin(user.email):
-        transactions = db.query(Transaction).all()
+        # Admins see all non-placeholder transactions
+        transactions = (
+            query
+            .filter(~Transaction.transaction_name.like("Tag_%_placeholder"))
+            .all()
+        )
     else:
         transactions = (
-            db.query(Transaction)
+            query
             .join(TransactionBreakdown, Transaction.transaction_id == TransactionBreakdown.transaction_id)
             .join(TransactionAccount, TransactionBreakdown.transaction_account_id == TransactionAccount.transaction_account_id)
             .filter(TransactionAccount.user_id == user.user_id)
+            .filter(~Transaction.transaction_name.like("Tag_%_placeholder"))  # Exclude placeholders
             .all()
         )
 
