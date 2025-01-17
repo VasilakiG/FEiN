@@ -266,6 +266,37 @@ def get_transactions(user: User = Depends(get_current_user), db: Session = Depen
         for transaction in transactions
     ]
 
+@app.get("/transactions/{transaction_id}", response_model=TransactionResponse)
+def get_transaction_by_id(
+    transaction_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Retrieve a single transaction by its ID, ensuring access is restricted
+    to the transaction creator or an admin user.
+    """
+    # If the user is an admin, they can access any transaction
+    if is_admin(user.email):
+        transaction = db.query(Transaction).filter(Transaction.transaction_id == transaction_id).first()
+        if not transaction:
+            raise HTTPException(status_code=404, detail="Transaction not found.")
+        return transaction
+    
+    # Otherwise, restrict access to the transaction creator
+    transaction = (
+        db.query(Transaction)
+        .join(TransactionBreakdown, Transaction.transaction_id == TransactionBreakdown.transaction_id)
+        .join(TransactionAccount, TransactionBreakdown.transaction_account_id == TransactionAccount.transaction_account_id)
+        .filter(Transaction.transaction_id == transaction_id)
+        .filter(TransactionAccount.user_id == user.user_id)
+        .first()
+    )
+    if not transaction:
+        raise HTTPException(status_code=404, detail="Transaction not found or access denied.")
+    
+    return transaction
+
 @app.get("/transactions/{transaction_id}/breakdowns", response_model=List[TransactionBreakdownResponse])
 def get_transaction_breakdowns(transaction_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """
