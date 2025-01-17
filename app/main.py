@@ -514,16 +514,42 @@ def assign_tag_to_transaction(
     return {"message": "Tag assigned to transaction successfully"}
 
 @app.get("/tags/transaction/{transaction_id}", response_model=List[TagResponse])
-def get_transaction_tags_for_user(transaction_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    transaction = db.query(Transaction).filter(Transaction.transaction_id == transaction_id).first()
+def get_transaction_tags_for_user(
+    transaction_id: int, 
+    user: User = Depends(get_current_user), 
+    db: Session = Depends(get_db)
+):
+    """
+    Retrieve tags for a specific transaction if the transaction belongs to the logged-in user or if the user is an admin.
+    """
+    # Admins can access tags for any transaction
+    if is_admin(user.email):
+        tags = (
+            db.query(Tag)
+            .join(TagAssignedToTransaction, Tag.tag_id == TagAssignedToTransaction.tag_id)
+            .filter(TagAssignedToTransaction.transaction_id == transaction_id)
+            .all()
+        )
+        return tags
+    
+    # Check if the transaction belongs to the user
+    transaction = (
+        db.query(Transaction)
+        .join(TransactionBreakdown, Transaction.transaction_id == TransactionBreakdown.transaction_id)
+        .join(TransactionAccount, TransactionBreakdown.transaction_account_id == TransactionAccount.transaction_account_id)
+        .filter(Transaction.transaction_id == transaction_id)
+        .filter(TransactionAccount.user_id == user.user_id)
+        .first()
+    )
     if not transaction:
-        raise HTTPException(status_code=404, detail="Transaction not found")
-
-    # Ensure transaction belongs to the authenticated user
-    if not db.query(TransactionAccount).filter(
-        TransactionAccount.transaction_account_id == transaction_id,
-        TransactionAccount.user_id == user.user_id,
-    ).first():
         raise HTTPException(status_code=403, detail="Access denied")
+    
+    # Retrieve tags for the transaction
+    tags = (
+        db.query(Tag)
+        .join(TagAssignedToTransaction, Tag.tag_id == TagAssignedToTransaction.tag_id)
+        .filter(TagAssignedToTransaction.transaction_id == transaction_id)
+        .all()
+    )
 
-    return transaction.tags
+    return tags
