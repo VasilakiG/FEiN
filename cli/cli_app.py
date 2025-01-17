@@ -330,16 +330,20 @@ def delete_transaction():
         print(f"Error: {error_message}")
 
 def add_tag():
+    """Handles creating a new tag for the logged-in user."""
+    headers = {"Authorization": f"Bearer {access_token}"}
+
     print("\nAdd Tag")
     tag_name = input("Enter tag name: ")
 
-    response = requests.post(f"{BASE_URL}/tags/", json={"tag_name": tag_name})
+    response = requests.post(f"{BASE_URL}/tags/", json={"tag_name": tag_name}, headers=headers)
 
     if response.status_code == 200:
         print("Tag added successfully.")
     else:
         print("Failed to add tag.")
-        print(f"Error: {response.json().get('detail', 'Unknown error')}")
+        error_message = response.json().get('detail', 'Unknown error')
+        print(f"Error: {error_message}")
 
 def view_tags():
     print("\nView Tags")

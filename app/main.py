@@ -347,11 +347,57 @@ def get_reports(db: Session = Depends(get_db)):
     return {"report": "Reports feature placeholder"}
 
 @app.post("/tags/", response_model=TagResponse)
-def create_tag(tag: TagCreate, db: Session = Depends(get_db)):
+def create_tag(
+    tag: TagCreate,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Create a tag associated with the logged-in user by linking it to a placeholder transaction.
+    """
+    # Create the tag
     new_tag = Tag(tag_name=tag.tag_name)
     db.add(new_tag)
     db.commit()
     db.refresh(new_tag)
+
+    # Create a dummy transaction linked to the user's first account
+    user_account = (
+        db.query(TransactionAccount)
+        .filter(TransactionAccount.user_id == user.user_id)
+        .first()
+    )
+    if not user_account:
+        raise HTTPException(status_code=403, detail="No account available to associate with the tag.")
+
+    # Associate the tag with a dummy transaction for the user
+    dummy_transaction = Transaction(
+        transaction_name=f"Tag_{new_tag.tag_id}_placeholder",
+        amount=0,
+        net_amount=0,
+        date=datetime.utcnow(),
+    )
+    db.add(dummy_transaction)
+    db.commit()
+    db.refresh(dummy_transaction)
+
+    # Link the dummy transaction to the user's account
+    dummy_breakdown = TransactionBreakdown(
+        transaction_id=dummy_transaction.transaction_id,
+        transaction_account_id=user_account.transaction_account_id,
+        earned_amount=0,
+        spent_amount=0,
+    )
+    db.add(dummy_breakdown)
+
+    # Associate the tag with the dummy transaction
+    tag_assignment = TagAssignedToTransaction(
+        transaction_id=dummy_transaction.transaction_id,
+        tag_id=new_tag.tag_id,
+    )
+    db.add(tag_assignment)
+    db.commit()
+
     return new_tag
 
 @app.get("/tags/", response_model=List[TagResponse])
