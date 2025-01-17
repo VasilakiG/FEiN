@@ -452,16 +452,65 @@ def get_tags(
     return accessible_tags
 
 @app.post("/tags/assign/", response_model=dict)
-def assign_tag_to_transaction(tag_assign: TagAssign, db: Session = Depends(get_db)):
-    transaction = db.query(Transaction).filter(Transaction.transaction_id == tag_assign.transaction_id).first()
-    tag = db.query(Tag).filter(Tag.tag_id == tag_assign.tag_id).first()
+def assign_tag_to_transaction(
+    tag_assign: TagAssign,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Assign a tag to a transaction only if:
+    - The transaction belongs to the logged-in user.
+    - The tag is accessible to the logged-in user (created by them or accessible via a transaction).
+    """
+    # Ensure the transaction belongs to the logged-in user
+    transaction = (
+        db.query(Transaction)
+        .join(TransactionBreakdown, Transaction.transaction_id == TransactionBreakdown.transaction_id)
+        .join(TransactionAccount, TransactionBreakdown.transaction_account_id == TransactionAccount.transaction_account_id)
+        .filter(Transaction.transaction_id == tag_assign.transaction_id)
+        .filter(TransactionAccount.user_id == user.user_id)
+        .first()
+    )
+    if not transaction:
+        raise HTTPException(status_code=404, detail="Transaction not found or access denied.")
 
-    if not transaction or not tag:
-        raise HTTPException(status_code=404, detail="Transaction or Tag not found")
+    # Ensure the tag is accessible to the logged-in user
+    tag_accessible = (
+        db.query(Tag)
+        .join(TagAssignedToTransaction, Tag.tag_id == TagAssignedToTransaction.tag_id, isouter=True)
+        .join(Transaction, TagAssignedToTransaction.transaction_id == Transaction.transaction_id, isouter=True)
+        .join(TransactionBreakdown, Transaction.transaction_id == TransactionBreakdown.transaction_id, isouter=True)
+        .join(TransactionAccount, TransactionBreakdown.transaction_account_id == TransactionAccount.transaction_account_id, isouter=True)
+        .filter(Tag.tag_id == tag_assign.tag_id)
+        .filter(
+            (TransactionAccount.user_id == user.user_id) |  # Tag linked to the user's transactions
+            (TransactionAccount.user_id.is_(None))         # Newly created tag not yet assigned
+        )
+        .first()
+    )
+    if not tag_accessible:
+        raise HTTPException(status_code=404, detail="Access denied to the tag.")
+    
+    # Check if the tag is already assigned to the transaction
+    existing_assignment = (
+        db.query(TagAssignedToTransaction)
+        .filter(
+            TagAssignedToTransaction.transaction_id == tag_assign.transaction_id,
+            TagAssignedToTransaction.tag_id == tag_assign.tag_id,
+        )
+        .first()
+    )
+    if existing_assignment:
+        raise HTTPException(status_code=400, detail="Tag already assigned to this transaction.")
 
-    assignment = TagAssignedToTransaction(transaction_id=tag_assign.transaction_id, tag_id=tag_assign.tag_id)
+    # Assign the tag to the transaction
+    assignment = TagAssignedToTransaction(
+        transaction_id=tag_assign.transaction_id,
+        tag_id=tag_assign.tag_id,
+    )
     db.add(assignment)
     db.commit()
+
     return {"message": "Tag assigned to transaction successfully"}
 
 @app.get("/tags/transaction/{transaction_id}", response_model=List[TagResponse])

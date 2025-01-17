@@ -360,6 +360,8 @@ def view_tags():
         print(f"Failed to retrieve tags. Error: {response.json().get('detail', 'Unknown error')}")
 
 def assign_tag_to_transaction():
+    headers = {"Authorization": f"Bearer {access_token}"}
+
     print("\nAssign Tag to Transaction")
     transaction_id = int(input("Enter transaction ID: "))
     tag_id = int(input("Enter tag ID: "))
@@ -367,7 +369,7 @@ def assign_tag_to_transaction():
     response = requests.post(f"{BASE_URL}/tags/assign/", json={
         "transaction_id": transaction_id,
         "tag_id": tag_id
-    })
+    }, headers=headers)
 
     if response.status_code == 200:
         print("Tag assigned successfully.")
