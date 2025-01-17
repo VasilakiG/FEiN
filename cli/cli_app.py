@@ -346,15 +346,18 @@ def add_tag():
         print(f"Error: {error_message}")
 
 def view_tags():
-    print("\nView Tags")
-    response = requests.get(f"{BASE_URL}/tags/")
+    """Retrieve and display tags accessible to the logged-in user."""
+    headers = {"Authorization": f"Bearer {access_token}"}
+    
+    print("\nYour Tags")
+    response = requests.get(f"{BASE_URL}/tags/", headers=headers)
 
     if response.status_code == 200:
         tags = response.json()
         for tag in tags:
             print(f"ID: {tag['tag_id']}, Name: {tag['tag_name']}")
     else:
-        print("Error retrieving tags.")
+        print(f"Failed to retrieve tags. Error: {response.json().get('detail', 'Unknown error')}")
 
 def assign_tag_to_transaction():
     print("\nAssign Tag to Transaction")

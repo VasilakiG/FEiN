@@ -432,9 +432,24 @@ def create_tag(
     return new_tag
 
 @app.get("/tags/", response_model=List[TagResponse])
-def get_tags(db: Session = Depends(get_db)):
-    tags = db.query(Tag).all()
-    return tags
+def get_tags(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Retrieve tags accessible to the logged-in user based on their transactions.
+    """
+    accessible_tags = (
+        db.query(Tag)
+        .join(TagAssignedToTransaction, Tag.tag_id == TagAssignedToTransaction.tag_id)
+        .join(Transaction, TagAssignedToTransaction.transaction_id == Transaction.transaction_id)
+        .join(TransactionBreakdown, Transaction.transaction_id == TransactionBreakdown.transaction_id)
+        .join(TransactionAccount, TransactionBreakdown.transaction_account_id == TransactionAccount.transaction_account_id)
+        .filter(TransactionAccount.user_id == user.user_id)
+        .distinct()
+        .all()
+    )
+    return accessible_tags
 
 @app.post("/tags/assign/", response_model=dict)
 def assign_tag_to_transaction(tag_assign: TagAssign, db: Session = Depends(get_db)):
