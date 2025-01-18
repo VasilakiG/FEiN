@@ -99,7 +99,10 @@ class AuthResponse(BaseModel):
     token_type: str
 
 # Dependency to get the current user
-def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+def get_current_user(
+    token: str = Depends(oauth2_scheme), 
+    db: Session = Depends(get_db)
+):
     """
     Retrieves the current user based on the access token.
     """
@@ -107,16 +110,28 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
         payload = decode_access_token(token)
         user_id = payload.get("sub")
         if not user_id:
-            raise HTTPException(status_code=401, detail="Invalid authentication credentials", headers={"WWW-Authenticate": "Bearer"},)
+            raise HTTPException(
+                status_code=401, 
+                detail="Invalid authentication credentials", 
+                headers={"WWW-Authenticate": "Bearer"}
+            )
         
         user = db.query(User).filter(User.user_id == user_id).first()
         if not user:
-            raise HTTPException(status_code=401, detail="Invalid authentication credentials",  headers={"WWW-Authenticate": "Bearer"},)
+            raise HTTPException(
+                status_code=401, 
+                detail="Invalid authentication credentials",
+                headers={"WWW-Authenticate": "Bearer"}
+            )
         
         return user
     except Exception as e:
         print(f"Error decoding token or fetching user: {e}")
-        raise HTTPException(status_code=401, detail="Invalid authentication credentials", headers={"WWW-Authenticate": "Bearer"},)
+        raise HTTPException(
+            status_code=401, 
+            detail="Invalid authentication credentials", 
+            headers={"WWW-Authenticate": "Bearer"}
+        )
 
 # Routes
 @app.get("/")
@@ -124,11 +139,17 @@ def read_root():
     return {"message": "Welcome to the Fein Prototype API"}
 
 @app.post("/auth/register/", response_model=AuthResponse)
-def register(auth_request: AuthRequest, db: Session = Depends(get_db)):
+def register(
+    auth_request: AuthRequest, 
+    db: Session = Depends(get_db)
+):
     # Check if email already exists
     existing_user = db.query(User).filter(User.email == auth_request.email).first()
     if existing_user:
-        raise HTTPException(status_code=400, detail="Email already registered")
+        raise HTTPException(
+            status_code=400, 
+            detail="Email already registered"
+        )
 
     # Hash password and create new user
     hashed_password = hash_password(auth_request.password)
@@ -146,37 +167,64 @@ def register(auth_request: AuthRequest, db: Session = Depends(get_db)):
     return {"access_token": access_token, "token_type": "bearer"}
 
 @app.post("/auth/login/", response_model=AuthResponse)
-def login(auth_request: AuthRequest, db: Session = Depends(get_db)):
+def login(
+    auth_request: AuthRequest, 
+    db: Session = Depends(get_db)
+):
     # Verify email and password
     user = db.query(User).filter(User.email == auth_request.email).first()
     if not user or not verify_password(auth_request.password, user.password):
-        raise HTTPException(status_code=401, detail="Invalid email or password")
+        raise HTTPException(
+            status_code=401, 
+            detail="Invalid email or password"
+        )
 
     # Return access token
     access_token = create_access_token({"sub": user.user_id, "email": user.email})
     return {"access_token": access_token, "token_type": "bearer"}
 
 @app.get("/admin/accounts/", response_model=List[TransactionAccountResponse])
-def admin_get_all_accounts(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def admin_get_all_accounts(
+    user: User = Depends(get_current_user), 
+    db: Session = Depends(get_db)
+):
     if not is_admin(user.email):
-        raise HTTPException(status_code=403, detail="Access denied")
+        raise HTTPException(
+            status_code=403, 
+            detail="Access denied"
+        )
     return db.query(TransactionAccount).all()
 
 
 @app.post("/accounts/", response_model=TransactionAccountResponse)
-def create_account(account: TransactionAccountCreate, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    new_account = TransactionAccount(account_name=account.account_name, balance=account.balance, user_id=user.user_id)
+def create_account(
+    account: TransactionAccountCreate, 
+    user: User = Depends(get_current_user), 
+    db: Session = Depends(get_db)
+):
+    new_account = TransactionAccount(
+        account_name=account.account_name, 
+        balance=account.balance, 
+        user_id=user.user_id
+    )
     db.add(new_account)
     db.commit()
     db.refresh(new_account)
     return new_account
 
 @app.get("/accounts/", response_model=List[TransactionAccountResponse])
-def get_accounts(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def get_accounts(
+    user: User = Depends(get_current_user), 
+    db: Session = Depends(get_db)
+):
     return db.query(TransactionAccount).filter(TransactionAccount.user_id == user.user_id).all()
 
 @app.post("/transactions/", response_model=TransactionResponse)
-def create_transaction(transaction_request: TransactionCreateRequest, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def create_transaction(
+    transaction_request: TransactionCreateRequest, 
+    user: User = Depends(get_current_user), 
+    db: Session = Depends(get_db)
+):
     """
     Create a transaction and associate it with the user's accounts via breakdowns.
     """
@@ -186,7 +234,10 @@ def create_transaction(transaction_request: TransactionCreateRequest, user: User
         TransactionAccount.user_id == user.user_id
     ).first()
     if not target_account:
-        raise HTTPException(status_code=403, detail="Access denied to target account.")
+        raise HTTPException(
+            status_code=403, 
+            detail="Access denied to target account."
+        )
 
     # Create transaction
     new_transaction = Transaction(
@@ -219,7 +270,10 @@ def create_transaction(transaction_request: TransactionCreateRequest, user: User
                 TransactionAccount.user_id == user.user_id
             ).first()
             if not breakdown_account:
-                raise HTTPException(status_code=403, detail=f"Access denied to breakdown account {breakdown.transaction_account_id}.")
+                raise HTTPException(
+                    status_code=403, 
+                    detail=f"Access denied to breakdown account {breakdown.transaction_account_id}."
+                )
 
             # Create breakdown
             new_breakdown = TransactionBreakdown(
@@ -291,7 +345,10 @@ def get_transaction_by_id(
     if is_admin(user.email):
         transaction = db.query(Transaction).filter(Transaction.transaction_id == transaction_id).first()
         if not transaction:
-            raise HTTPException(status_code=404, detail="Transaction not found.")
+            raise HTTPException(
+                status_code=404, 
+                detail="Transaction not found."
+            )
         return transaction
     
     # Otherwise, restrict access to the transaction creator
@@ -304,12 +361,19 @@ def get_transaction_by_id(
         .first()
     )
     if not transaction:
-        raise HTTPException(status_code=404, detail="Transaction not found or access denied.")
+        raise HTTPException(
+            status_code=404, 
+            detail="Transaction not found or access denied."
+        )
     
     return transaction
 
 @app.get("/transactions/{transaction_id}/breakdowns", response_model=List[TransactionBreakdownResponse])
-def get_transaction_breakdowns(transaction_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def get_transaction_breakdowns(
+    transaction_id: int, 
+    user: User = Depends(get_current_user), 
+    db: Session = Depends(get_db)
+):
     """
     Fetch transaction breakdowns for a specific transaction.
     """
@@ -322,7 +386,10 @@ def get_transaction_breakdowns(transaction_id: int, user: User = Depends(get_cur
     )
 
     if not breakdowns:
-        raise HTTPException(status_code=404, detail="No breakdowns found for this transaction.")
+        raise HTTPException(
+            status_code=404, 
+            detail="No breakdowns found for this transaction."
+        )
 
     return breakdowns
 
@@ -347,7 +414,10 @@ def update_transaction(
         .first()
     )
     if not transaction:
-        raise HTTPException(status_code=404, detail="Transaction not found or access denied.")
+        raise HTTPException(
+            status_code=404, 
+            detail="Transaction not found or access denied."
+        )
 
     # Update transaction fields
     for key, value in transaction_update.dict(exclude_unset=True).items():
@@ -377,15 +447,25 @@ def delete_transaction(
     )
 
     if not transaction:
-        raise HTTPException(status_code=404, detail="Transaction not found or access denied.")
+        raise HTTPException(
+            status_code=404, 
+            detail="Transaction not found or access denied."
+        )
 
     db.delete(transaction)
     db.commit()
     return {"message": "Transaction deleted successfully"}
 
 @app.get("/reports/", response_model=dict)
-def get_reports(db: Session = Depends(get_db)):
-    total_spent = db.query(Transaction).with_entities(Transaction.amount).filter(Transaction.amount > 0).all()
+def get_reports(
+    db: Session = Depends(get_db)
+):
+    total_spent = (
+        db.query(Transaction)
+        .with_entities(Transaction.amount)
+        .filter(Transaction.amount > 0)
+        .all()
+    )
     return {"report": "Reports feature placeholder"}
 
 @app.post("/tags/", response_model=TagResponse)
@@ -410,7 +490,10 @@ def create_tag(
         .first()
     )
     if not user_account:
-        raise HTTPException(status_code=403, detail="No account available to associate with the tag.")
+        raise HTTPException(
+            status_code=403, 
+            detail="No account available to associate with the tag."
+        )
 
     # Associate the tag with a dummy transaction for the user
     dummy_transaction = Transaction(
@@ -500,7 +583,10 @@ def assign_tag_to_transaction(
         .first()
     )
     if not tag_accessible:
-        raise HTTPException(status_code=404, detail="Access denied to the tag.")
+        raise HTTPException(
+            status_code=404, 
+            detail="Access denied to the tag."
+        )
     
     # Check if the tag is already assigned to the transaction
     existing_assignment = (
@@ -512,7 +598,10 @@ def assign_tag_to_transaction(
         .first()
     )
     if existing_assignment:
-        raise HTTPException(status_code=400, detail="Tag already assigned to this transaction.")
+        raise HTTPException(
+            status_code=400, 
+            detail="Tag already assigned to this transaction."
+        )
 
     # Assign the tag to the transaction
     assignment = TagAssignedToTransaction(
@@ -553,7 +642,10 @@ def get_transaction_tags_for_user(
         .first()
     )
     if not transaction:
-        raise HTTPException(status_code=403, detail="Access denied")
+        raise HTTPException(
+            status_code=403, 
+            detail="Access denied"
+        )
     
     # Retrieve tags for the transaction
     tags = (
