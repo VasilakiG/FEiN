@@ -188,6 +188,9 @@ def admin_get_all_accounts(
     user: User = Depends(get_current_user), 
     db: Session = Depends(get_db)
 ):
+    """
+    Admin can fetch all transaction accounts.
+    """
     if not is_admin(user.email):
         raise HTTPException(
             status_code=403, 
@@ -217,7 +220,16 @@ def get_accounts(
     user: User = Depends(get_current_user), 
     db: Session = Depends(get_db)
 ):
-    return db.query(TransactionAccount).filter(TransactionAccount.user_id == user.user_id).all()
+    """
+    Admin can fetch all accounts, regular users only their accounts.
+    """
+    query = db.query(TransactionAccount)
+
+    if is_admin(user.email):
+        return query.all()
+    
+    return query.filter(TransactionAccount.user_id == user.user_id).all()
+        
 
 @app.post("/transactions/", response_model=TransactionResponse)
 def create_transaction(
@@ -226,18 +238,21 @@ def create_transaction(
     db: Session = Depends(get_db)
 ):
     """
+    Admins can create transactions for any account; regular users only for their accounts.
     Create a transaction and associate it with the user's accounts via breakdowns.
     """
-    # Validate target account ownership
-    target_account = db.query(TransactionAccount).filter(
-        TransactionAccount.transaction_account_id == transaction_request.target_account_id,
-        TransactionAccount.user_id == user.user_id
-    ).first()
-    if not target_account:
-        raise HTTPException(
-            status_code=403, 
-            detail="Access denied to target account."
-        )
+    # Admin bypasses ownership checks
+    if not is_admin(user.email):
+        # Validate target account ownership
+        target_account = db.query(TransactionAccount).filter(
+            TransactionAccount.transaction_account_id == transaction_request.target_account_id,
+            TransactionAccount.user_id == user.user_id
+        ).first()
+        if not target_account:
+            raise HTTPException(
+                status_code=403, 
+                detail="Access denied to target account."
+            )
 
     # Create transaction
     new_transaction = Transaction(
@@ -402,22 +417,36 @@ def update_transaction(
     db: Session = Depends(get_db)
 ):
     """
-    Update a transaction only if it belongs to the logged-in user.
+    Admins can update any transaction
+    Regular users update a transaction only if it belongs to the logged-in user.
     """
-    # Check if the transaction exists and belongs to the user
-    transaction = (
-        db.query(Transaction)
-        .join(TransactionBreakdown, Transaction.transaction_id == TransactionBreakdown.transaction_id)
-        .join(TransactionAccount, TransactionBreakdown.transaction_account_id == TransactionAccount.transaction_account_id)
-        .filter(Transaction.transaction_id == transaction_id)
-        .filter(TransactionAccount.user_id == user.user_id)
-        .first()
-    )
-    if not transaction:
-        raise HTTPException(
-            status_code=404, 
-            detail="Transaction not found or access denied."
+    query = db.query(Transaction)
+    
+    if is_admin(user.email):
+        transaction = (
+            query
+            .filter(Transaction.transaction_id == transaction_id)
+            .first()
         )
+        if not transaction:
+            raise HTTPException(
+                status_code=404, 
+                detail="Transaction not found."
+            )
+    else:
+        transaction = (
+            query
+            .join(TransactionBreakdown, Transaction.transaction_id == TransactionBreakdown.transaction_id)
+            .join(TransactionAccount, TransactionBreakdown.transaction_account_id == TransactionAccount.transaction_account_id)
+            .filter(Transaction.transaction_id == transaction_id)
+            .filter(TransactionAccount.user_id == user.user_id)
+            .first()
+        )
+        if not transaction:
+            raise HTTPException(
+                status_code=404, 
+                detail="Transaction not found or access denied."
+            )
 
     # Update transaction fields
     for key, value in transaction_update.dict(exclude_unset=True).items():
@@ -434,23 +463,36 @@ def delete_transaction(
     db: Session = Depends(get_db)
 ):
     """
-    Delete a transaction only if it belongs to the logged-in user.
+    Admins can delete any transaction
+    Regular users can delete a transaction only if it belongs to the logged-in user.
     """
-    # Check if the transaction exists and belongs to the user
-    transaction = (
-        db.query(Transaction)
-        .join(TransactionBreakdown, Transaction.transaction_id == TransactionBreakdown.transaction_id)
-        .join(TransactionAccount, TransactionBreakdown.transaction_account_id == TransactionAccount.transaction_account_id)
-        .filter(Transaction.transaction_id == transaction_id)
-        .filter(TransactionAccount.user_id == user.user_id)
-        .first()
-    )
+    query = db.query(Transaction)
 
-    if not transaction:
-        raise HTTPException(
-            status_code=404, 
-            detail="Transaction not found or access denied."
+    if is_admin(user.email):
+        transaction = (
+            query
+            .filter(Transaction.transaction_id == transaction_id)
+            .first()
         )
+        if not transaction:
+            raise HTTPException(
+                status_code=404, 
+                detail="Transaction not found."
+            )
+    else:
+        transaction = (
+            query
+            .join(TransactionBreakdown, Transaction.transaction_id == TransactionBreakdown.transaction_id)
+            .join(TransactionAccount, TransactionBreakdown.transaction_account_id == TransactionAccount.transaction_account_id)
+            .filter(Transaction.transaction_id == transaction_id)
+            .filter(TransactionAccount.user_id == user.user_id)
+            .first()
+        )
+        if not transaction:
+            raise HTTPException(
+                status_code=404, 
+                detail="Transaction not found or access denied."
+            )
 
     db.delete(transaction)
     db.commit()
@@ -531,8 +573,12 @@ def get_tags(
     db: Session = Depends(get_db)
 ):
     """
-    Retrieve tags accessible to the logged-in user based on their transactions.
+    Admins can fetch all tags
+    Regular users can retrieve tags accessible to the logged-in user based on their transactions.
     """
+    if is_admin(user.email):
+        return db.query(Tag).all()
+
     accessible_tags = (
         db.query(Tag)
         .join(TagAssignedToTransaction, Tag.tag_id == TagAssignedToTransaction.tag_id)
@@ -552,9 +598,11 @@ def assign_tag_to_transaction(
     db: Session = Depends(get_db)
 ):
     """
-    Assign a tag to a transaction only if:
-    - The transaction belongs to the logged-in user.
-    - The tag is accessible to the logged-in user (created by them or accessible via a transaction).
+    Assign a tag to a transaction.
+    - Admins can assign any tag to any transaction.
+    - Regular users can assign a tag if:
+        - The transaction belongs to them.
+        - The tag is accessible (created by them or linked to their transactions).
     """
     # Ensure the transaction belongs to the logged-in user
     transaction = (
@@ -620,7 +668,9 @@ def get_transaction_tags_for_user(
     db: Session = Depends(get_db)
 ):
     """
-    Retrieve tags for a specific transaction if the transaction belongs to the logged-in user or if the user is an admin.
+    Retrieve tags for a specific transaction.
+    - Admins can retrieve tags for any transaction.
+    - Regular users can retrieve tags if the transaction belongs to them.
     """
     # Admins can access tags for any transaction
     if is_admin(user.email):
