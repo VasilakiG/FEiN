@@ -414,6 +414,7 @@ def reports_menu():
         print("3. View Spending by Date Range")
         print("4. View Transactions Exceeding Account Balance")
         print("5. View Transactions Exceeding Account Balance Currently")
+        print("6. View Chronological List of Transactions Exceeding Total Account Balances")
         choice = input("Choose a report option: ")
 
         if choice == "1":
@@ -426,6 +427,8 @@ def reports_menu():
             get_exceeding_account_balance()
         elif choice == "5":
             get_exceeding_current_balance()
+        elif choice == "6":
+            get_exceeding_total_balances()
         elif choice == "0":
             break
         else:
@@ -571,6 +574,35 @@ def get_exceeding_current_balance():
     except requests.exceptions.RequestException as e:
         print(f"Request failed: {e}")
 
+def get_exceeding_total_balances():
+    headers = {"Authorization": f"Bearer {access_token}"}
+
+    print("\nChronological List of Transactions Exceeding Total Account Balances")
+    try:
+        response = requests.get(f"{BASE_URL}/reports/exceeding-total-balances", headers=headers)
+
+        if response.status_code == 200:
+            records = response.json()
+            if not records:
+                print("No transactions exceeding total balances found.")
+            else:
+                print("\nTransactions Exceeding Total Balances:")
+                for record in records:
+                    print("-" * 50)
+                    print(f"User ID: {record['user_id']}")
+                    print(f"User Name: {record['user_name']}")
+                    print(f"Transaction ID: {record['transaction_id']}")
+                    print(f"Transaction Name: {record['transaction_name']}")
+                    print(f"Transaction Amount: {record['transaction_amount']:,.2f}")
+                    print(f"Transaction Date: {record['transaction_date']}")
+                    print(f"Calculated Total Balance: {record['calculated_total_balance']:,.2f}")
+                    print("-" * 50)
+        else:
+            print("Failed to fetch the report.")
+            error_message = response.json().get("detail", "Unknown error")
+            print(f"Error: {error_message}")
+    except requests.exceptions.RequestException as e:
+        print(f"Request failed: {e}")
 
 if __name__ == "__main__":
     main_menu()

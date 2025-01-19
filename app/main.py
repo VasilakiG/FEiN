@@ -974,4 +974,66 @@ def get_exceeding_current_balance(
         for row in results
     ]
 
+@app.get("/reports/exceeding-total-balances", response_model=List[dict])
+def get_exceeding_total_balances(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Retrieve a chronological list of transactions that exceed the calculated total balances for all accounts.
+    - Admins can view for all users.
+    - Regular users can view for their own accounts.
+    """
+    # Subquery to calculate the running balance using a window function
+    subquery = (
+        db.query(
+            User.user_id.label("user_id"),
+            User.user_name.label("user_name"),
+            Transaction.transaction_id.label("transaction_id"),
+            Transaction.transaction_name.label("transaction_name"),
+            Transaction.date.label("transaction_date"),
+            TransactionBreakdown.spent_amount.label("transaction_amount"),
+            func.sum(TransactionBreakdown.earned_amount - TransactionBreakdown.spent_amount)
+            .over(partition_by=User.user_id, order_by=Transaction.date)
+            .label("calculated_total_balance")
+        )
+        .join(TransactionAccount, TransactionAccount.user_id == User.user_id)
+        .join(TransactionBreakdown, TransactionBreakdown.transaction_account_id == TransactionAccount.transaction_account_id)
+        .join(Transaction, Transaction.transaction_id == TransactionBreakdown.transaction_id)
+        .filter(TransactionBreakdown.spent_amount > 0)  # Only positive transactions
+        .subquery()
+    )
+
+    # Outer query to filter transactions exceeding the calculated balance
+    query = db.query(
+        subquery.c.user_id,
+        subquery.c.user_name,
+        subquery.c.transaction_id,
+        subquery.c.transaction_name,
+        subquery.c.transaction_date,
+        subquery.c.transaction_amount,
+        subquery.c.calculated_total_balance
+    ).filter(
+        subquery.c.transaction_amount > subquery.c.calculated_total_balance  # Exceeds the total balance
+    )
+
+    # Apply user-specific filtering for non-admin users
+    if not is_admin(user.email):
+        query = query.filter(subquery.c.user_id == user.user_id)
+
+    # Execute the query and return results
+    results = query.order_by(subquery.c.user_id, subquery.c.transaction_date.desc()).all()
+
+    return [
+        {
+            "user_id": row.user_id,
+            "user_name": row.user_name,
+            "transaction_id": row.transaction_id,
+            "transaction_name": row.transaction_name,
+            "transaction_date": row.transaction_date,
+            "transaction_amount": float(row.transaction_amount),
+            "calculated_total_balance": float(row.calculated_total_balance),
+        }
+        for row in results
+    ]
 
