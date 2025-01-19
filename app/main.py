@@ -924,3 +924,54 @@ def get_exceeding_transactions(
 
     return response
 
+@app.get("/reports/exceeding-current-balance", response_model=List[dict])
+def get_exceeding_current_balance(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Retrieve a list of transactions that exceed the current balance of accounts.
+    - Admins can view for all users.
+    - Regular users can view for their own accounts.
+    """
+    query = (
+        db.query(
+            User.user_id,
+            User.user_name,
+            TransactionAccount.account_name,
+            TransactionAccount.balance.label("current_balance"),
+            Transaction.transaction_id,
+            Transaction.transaction_name,
+            TransactionBreakdown.spent_amount.label("transaction_amount"),
+            Transaction.date.label("transaction_date"),
+        )
+        .join(TransactionAccount, TransactionAccount.user_id == User.user_id)
+        .join(TransactionBreakdown, TransactionBreakdown.transaction_account_id == TransactionAccount.transaction_account_id)
+        .join(Transaction, Transaction.transaction_id == TransactionBreakdown.transaction_id)
+        .filter(TransactionBreakdown.spent_amount > TransactionAccount.balance)  # Transactions exceeding account balance
+        .filter(TransactionBreakdown.spent_amount > 0)  # Positive transactions only
+    )
+
+    # Apply user-specific filtering for non-admins
+    if not is_admin(user.email):
+        query = query.filter(TransactionAccount.user_id == user.user_id)
+
+    # Order results
+    results = query.order_by(User.user_id, TransactionAccount.account_name, Transaction.date.desc()).all()
+
+    # Prepare response
+    return [
+        {
+            "user_id": row.user_id,
+            "user_name": row.user_name,
+            "account_name": row.account_name,
+            "current_balance": float(row.current_balance),
+            "transaction_id": row.transaction_id,
+            "transaction_name": row.transaction_name,
+            "transaction_amount": float(row.transaction_amount),
+            "transaction_date": row.transaction_date,
+        }
+        for row in results
+    ]
+
+
