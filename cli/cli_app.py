@@ -169,7 +169,7 @@ def user_menu():
         elif choice == "10":
             view_transaction_tags()
         elif choice == "11":
-            view_reports()
+            reports_menu()
         elif choice == "12":
             print("Logging out...")
             access_token = None
@@ -400,14 +400,104 @@ def view_transaction_tags():
     else:
         print(f"Failed to retrieve transaction. Error: {response.json().get('detail', 'Unknown error')}")
 
-def view_reports():
-    print("\nView Reports")
-    response = requests.get(f"{BASE_URL}/reports/")
+def reports_menu():
+    """
+    Displays the reports menu.
+    """
+    global access_token
+    
+    while True:
+        print("\nReports Menu")
+        print("0. Go back to User Menu")
+        print("1. View Total Spending")
+        print("2. View Spending by Category")
+        print("3. View Spending by Date Range")
+        choice = input("Choose a report option: ")
 
-    if response.status_code == 200:
-        print(response.json())
-    else:
-        print("Error retrieving reports.")
+        if choice == "1":
+            get_total_spending()
+        elif choice == "2":
+            get_spending_by_category()
+        elif choice == "3":
+            get_spending_by_date_range()
+        elif choice == "0":
+            break
+        else:
+            print("Invalid choice. Please try again.")
+
+def get_total_spending():
+    headers = {"Authorization": f"Bearer {access_token}"}
+
+    print("\nTotal Spending Report")
+    try:
+        response = requests.get(f"{BASE_URL}/reports/total-spending", headers=headers)
+
+        if response.status_code == 200:
+            data = response.json()
+            total_spent = data.get("total_spent", 0.0)
+            print(f"Your total spending is: {float(total_spent):,.2f}")
+        else:
+            print("Failed to fetch the total spending report.")
+            error_message = response.json().get("detail", "Unknown error")
+            print(f"Error: {error_message}")
+    except requests.exceptions.RequestException as e:
+        print(f"Request failed: {e}")
+
+def get_spending_by_category():
+    headers = {"Authorization": f"Bearer {access_token}"}
+
+    print("\nSpending by Category Report")
+    try:
+        response = requests.get(f"{BASE_URL}/reports/spending-by-category", headers=headers)
+
+        if response.status_code == 200:
+            data = response.json()
+            spending_by_category = data.get("spending_by_category", {})
+
+            if not spending_by_category:
+                print("No spending data found by category.")
+            else:
+                print("\nSpending by Category:")
+                print("-" * 50)
+                for category, amount in spending_by_category.items():
+                    print(f"Category: {category}")
+                    print(f"Total Spending: {float(amount):,.2f}")
+                    print("-" * 50)
+        else:
+            print("Failed to fetch the spending by category report.")
+            error_message = response.json().get("detail", "Unknown error")
+            print(f"Error: {error_message}")
+    except requests.exceptions.RequestException as e:
+        print(f"Request failed: {e}")
+
+def get_spending_by_date_range():
+    headers = {"Authorization": f"Bearer {access_token}"}
+
+    print("\nSpending by Date Range Report")
+    start_date = input("Enter start date (YYYY-MM-DD): ")
+    end_date = input("Enter end date (YYYY-MM-DD): ")
+
+    try:
+        response = requests.get(
+            f"{BASE_URL}/reports/spending-by-date-range",
+            params={"start_date": start_date, "end_date": end_date},
+            headers=headers
+        )
+
+        if response.status_code == 200:
+            data = response.json()
+            total_spent = data.get("total_spent", 0.0)
+            print("\nSpending by Date Range:")
+            print(f"From: {start_date} To: {end_date}")
+            print(f"Total Spending: {float(total_spent):,.2f}")
+        else:
+            print("Failed to fetch the spending by date range report.")
+            error_message = response.json().get("detail", "Unknown error")
+            print(f"Error: {error_message}")
+    except requests.exceptions.RequestException as e:
+        print(f"Request failed: {e}")
+
 
 if __name__ == "__main__":
     main_menu()
+

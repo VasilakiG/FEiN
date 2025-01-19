@@ -7,6 +7,7 @@ from typing import List, Optional
 from datetime import datetime
 from fastapi.security import OAuth2PasswordBearer
 from app.auth import create_access_token, decode_access_token, is_admin, hash_password, verify_password
+from sqlalchemy import func, literal_column, select
 
 # Initialize FastAPI app
 app = FastAPI()
@@ -498,17 +499,6 @@ def delete_transaction(
     db.commit()
     return {"message": "Transaction deleted successfully"}
 
-@app.get("/reports/", response_model=dict)
-def get_reports(
-    db: Session = Depends(get_db)
-):
-    total_spent = (
-        db.query(Transaction)
-        .with_entities(Transaction.amount)
-        .filter(Transaction.amount > 0)
-        .all()
-    )
-    return {"report": "Reports feature placeholder"}
 
 @app.post("/tags/", response_model=TagResponse)
 def create_tag(
@@ -706,3 +696,146 @@ def get_transaction_tags_for_user(
     )
 
     return tags
+
+@app.get("/reports/total-spending", response_model=dict)
+def get_total_spending(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Calculate and return total spending for the logged-in user.
+    - Admins can view total spending for all users.
+    """
+    try:
+        query = db.query(
+                func
+                .sum(Transaction.amount)
+                .label("total_spent")
+            )
+
+        if is_admin(user.email):
+            # Admin: Total spending for all users
+            total_spent = (
+                query
+                .filter(Transaction.amount > 0)
+                .scalar()
+            )
+        else:
+            # Regular User: Total spending for their accounts
+            total_spent = (
+                query
+                .join(TransactionBreakdown, Transaction.transaction_id == TransactionBreakdown.transaction_id)
+                .join(TransactionAccount, TransactionBreakdown.transaction_account_id == TransactionAccount.transaction_account_id)
+                .filter(TransactionAccount.user_id == user.user_id)
+                .filter(Transaction.amount > 0)
+                .scalar()
+            )
+
+        return {"total_spent": total_spent or 0.0}
+    except Exception as e:
+        print(f"Error calculating total spending: {e}")
+        raise HTTPException(
+            status_code=500, 
+            detail="Failed to calculate total spending."
+        )
+    
+@app.get("/reports/spending-by-category", response_model=dict)
+def get_spending_by_category(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Calculate and return spending grouped by category (tags) for the logged-in user.
+    - Admins can view spending by category for all users.
+    """
+    try:
+        # Base query
+        query = db.query(
+            Tag.tag_name,
+            func.sum(Transaction.amount).label("total_spent")
+        ).join(
+            TagAssignedToTransaction, Tag.tag_id == TagAssignedToTransaction.tag_id
+        ).join(
+            Transaction, TagAssignedToTransaction.transaction_id == Transaction.transaction_id
+        ).filter(
+            Transaction.amount > 0  # Include only positive amounts
+        )
+
+        # Apply filters for regular users
+        if not is_admin(user.email):
+            query = query.join(
+                TransactionBreakdown, Transaction.transaction_id == TransactionBreakdown.transaction_id
+            ).join(
+                TransactionAccount, TransactionBreakdown.transaction_account_id == TransactionAccount.transaction_account_id
+            ).filter(
+                TransactionAccount.user_id == user.user_id
+            )
+
+        # Group by tag and calculate the total spending for each category
+        spending_by_category = query.group_by(Tag.tag_name).all()
+
+        # Prepare the response as a dictionary
+        response = {row.tag_name: float(row.total_spent or 0) for row in spending_by_category}
+        return {"spending_by_category": response}
+
+    except Exception as e:
+        print(f"Error calculating spending by category: {e}")
+        raise HTTPException(
+            status_code=500, 
+            detail="Failed to calculate spending by category."
+        )
+
+@app.get("/reports/spending-by-date-range", response_model=dict)
+def get_spending_by_date_range(
+    start_date: str, # Expecting date in 'YYYY-MM-DD' format
+    end_date: str,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Calculate and return spending within a specified date range for the logged-in user.
+    - Admins can view spending within the date range for all users.
+    """
+    try:
+        # Convert input dates to `datetime`
+        start_date_parsed = datetime.strptime(start_date, "%Y-%m-%d")
+        end_date_parsed = datetime.strptime(end_date, "%Y-%m-%d")
+
+        # Query base
+        query = db.query(func.sum(Transaction.amount).label("total_spent"))
+
+        if is_admin(user.email):
+            # Admin: Total spending for all users within the date range
+            total_spent = (
+                query
+                .filter(
+                    Transaction.date >= start_date_parsed,
+                    Transaction.date <= end_date_parsed,
+                    Transaction.amount > 0
+                )
+                .scalar()
+            )
+        else:
+            # Regular User: Total spending within the date range for their accounts
+            total_spent = (
+                query
+                .join(TransactionBreakdown, Transaction.transaction_id == TransactionBreakdown.transaction_id)
+                .join(TransactionAccount, TransactionBreakdown.transaction_account_id == TransactionAccount.transaction_account_id)
+                .filter(
+                    TransactionAccount.user_id == user.user_id,
+                    Transaction.date >= start_date_parsed,
+                    Transaction.date <= end_date_parsed,
+                    Transaction.amount > 0
+                )
+                .scalar()
+            )
+
+        # Return result
+        return {"total_spent": total_spent or 0.0}
+    except Exception as e:
+        print(f"Error calculating spending by date range: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to calculate spending by date range."
+        )
+
