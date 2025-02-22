@@ -1,9 +1,14 @@
+import os
+from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
+# Load environment variables
+load_dotenv()
+
 # Database URL
-DATABASE_URL = "postgresql://vasilaki:adminpassword@db:5432/fein1"
+DATABASE_URL = os.getenv("DATABASE_URL")
 
 # Create the database engine
 engine = create_engine(DATABASE_URL, pool_pre_ping=True)
