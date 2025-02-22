@@ -1037,3 +1037,59 @@ def get_exceeding_total_balances(
         for row in results
     ]
 
+@app.get("/reports/exceeding-user-total-balance", response_model=List[dict])
+def get_exceeding_user_total_balance(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Retrieve a list of users whose transactions exceed the total balance of all their accounts.
+    - Admins can view results for all users.
+    - Regular users can only see their own data.
+    """
+    # Subquery to calculate the total balance for each user
+    total_balance_subquery = (
+        db.query(
+            TransactionAccount.user_id.label("user_id"),
+            func.sum(TransactionAccount.balance).label("total_balance")
+        )
+        .group_by(TransactionAccount.user_id)
+        .subquery()
+    )
+
+    # Main query
+    query = (
+        db.query(
+            User.user_id,
+            User.user_name,
+            func.sum(TransactionBreakdown.spent_amount).label("total_transaction_amount"),
+            total_balance_subquery.c.total_balance.label("user_total_balance")
+        )
+        .join(TransactionAccount, TransactionAccount.user_id == User.user_id)
+        .join(TransactionBreakdown, TransactionBreakdown.transaction_account_id == TransactionAccount.transaction_account_id)
+        .join(Transaction, Transaction.transaction_id == TransactionBreakdown.transaction_id)
+        .join(total_balance_subquery, total_balance_subquery.c.user_id == User.user_id)
+        .filter(Transaction.date <= func.current_date())  # Only transactions up to the current date
+        .group_by(User.user_id, User.user_name, total_balance_subquery.c.total_balance)
+        .having(func.sum(TransactionBreakdown.spent_amount) > total_balance_subquery.c.total_balance)  # Exceeds total balance
+        .order_by(User.user_id)
+    )
+
+    # Apply user-specific filtering for non-admins
+    if not is_admin(user.email):
+        query = query.filter(User.user_id == user.user_id)
+
+    # Execute the query
+    results = query.all()
+
+    # Prepare response
+    return [
+        {
+            "user_id": row.user_id,
+            "user_name": row.user_name,
+            "total_transaction_amount": float(row.total_transaction_amount),
+            "user_total_balance": float(row.user_total_balance),
+        }
+        for row in results
+    ]
+
