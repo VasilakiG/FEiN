@@ -18,15 +18,15 @@ pub fn Navbar() -> Element {
         document::Link { rel: "stylesheet", href: NAVBAR_CSS }
 
         div { id: "navbar",
-            Link { id: "navbar-item", to: Route::Home {}, "Home" }
-            Link { id: "navbar-item", to: Route::Blog { id: 1 }, "Blog" }
+            Link { id: "navbar-item", to: Route::TransactionAccounts {}, "Transaction Accounts" }
+            Link { id: "navbar-item", to: Route::Blog { id: 1 }, "Dummy" }
 
             div { class: "fab-container",
                 button { class: "fab", "+" }
             }
 
-            Link { id: "navbar-item", to: Route::Home {}, "Home" }
-            Link { id: "navbar-item", to: Route::Blog { id: 1 }, "Blog" }
+            Link { id: "navbar-item", to: Route::TransactionAccounts {}, "Dummy" }
+            Link { id: "navbar-item", to: Route::Blog { id: 1 }, "Dummy" }
         }
     }
 }

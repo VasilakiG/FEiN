@@ -11,12 +11,20 @@
   border-top: 1px solid #ddd;
 }
 
-.nav-item {
+
+#navbar-item {
   flex: 1;
   text-align: center;
-  color: #f60000;
+  color: #ffffff;
   text-decoration: none;
   font-size: 14px;
+  margin-right: 20px;
+  transition: color 0.2s ease;
+}
+
+#navbar-item:hover {
+  cursor: pointer;
+  color: #91a4d2;
 }
 
 .fab-container {
@@ -38,16 +46,4 @@
   text-align: center;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
   cursor: pointer;
-}
-
-#navbar a {
-  color: #ffffff;
-  margin-right: 20px;
-  text-decoration: none;
-  transition: color 0.2s ease;
-}
-
-#navbar a:hover {
-  cursor: pointer;
-  color: #91a4d2;
 }
