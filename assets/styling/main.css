@@ -3,6 +3,7 @@ body {
     color: #ffffff;
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     margin: 20px;
+    padding-bottom: 64px;
 }
 
 #hero {
@@ -13,7 +14,7 @@ body {
     align-items: center;
 }
 
-#links {
+#windows {
     width: 400px;
     text-align: left;
     font-size: x-large;
@@ -22,7 +23,7 @@ body {
     flex-direction: column;
 }
 
-#links a {
+#windows a {
     color: white;
     text-decoration: none;
     margin-top: 20px;
@@ -32,7 +33,7 @@ body {
     padding: 10px;
 }
 
-#links a:hover {
+#windows a:hover {
     background-color: #1f1f1f;
     cursor: pointer;
 }
