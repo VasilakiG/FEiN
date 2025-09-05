@@ -13,12 +13,10 @@ project/
 │  ├─ main.rs # The entrypoint for the app. It also defines the routes for the app.
 │  ├─ components/
 │  │  ├─ mod.rs # Defines the components module
-│  │  ├─ hero.rs # The Hero component for use in the home page
-│  │  ├─ echo.rs # The echo component uses server functions to communicate with the server
+│  │  ├─ ... Implementations of components
 │  ├─ views/ # The views each route will render in the app.
 │  │  ├─ mod.rs # Defines the module for the views route and re-exports the components for each route
-│  │  ├─ blog.rs # The component that will render at the /blog/:id route
-│  │  ├─ home.rs # The component that will render at the / route
+│  │  ├─ ... Components that will render at respective routes
 ├─ Cargo.toml # The Cargo.toml file defines the dependencies and feature flags for your project
 ```
 
