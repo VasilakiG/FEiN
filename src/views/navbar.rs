@@ -19,14 +19,14 @@ pub fn Navbar() -> Element {
 
         div { id: "navbar",
             Link { id: "navbar-item", to: Route::TransactionAccounts {}, "Transaction Accounts" }
-            Link { id: "navbar-item", to: Route::Blog { id: 1 }, "Dummy" }
+            Link { id: "navbar-item", to: Route::TransactionAccounts {}, "Transaction Accounts" }
 
             div { class: "fab-container",
                 button { class: "fab", "+" }
             }
 
-            Link { id: "navbar-item", to: Route::TransactionAccounts {}, "Dummy" }
-            Link { id: "navbar-item", to: Route::Blog { id: 1 }, "Dummy" }
+            Link { id: "navbar-item", to: Route::TransactionAccounts {}, "Transaction Accounts" }
+            Link { id: "navbar-item", to: Route::TransactionAccounts {}, "Transaction Accounts" }
         }
     }
 }

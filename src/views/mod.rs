@@ -11,8 +11,5 @@
 mod transaction_accounts;
 pub use transaction_accounts::TransactionAccounts;
 
-mod blog;
-pub use blog::Blog;
-
 mod navbar;
 pub use navbar::Navbar;
