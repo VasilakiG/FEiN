@@ -4,5 +4,3 @@
 
 mod transaction_accounts_component;
 pub use transaction_accounts_component::TransactionAccountsComponent;
-
-mod echo;
