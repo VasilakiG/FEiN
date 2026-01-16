@@ -1,6 +1,6 @@
 import requests
 import jwt
-from app.auth import is_admin, decode_access_token
+from backend_python.auth import is_admin, decode_access_token
 
 BASE_URL = "http://localhost:8000"
 access_token = None # Global variable for the access token

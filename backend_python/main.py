@@ -1,12 +1,12 @@
 from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy.orm import Session
-from app.database import get_db
-from app.models import User, TransactionAccount, Transaction, TransactionBreakdown, Tag, TagAssignedToTransaction
+from .database import get_db
+from .models import User, TransactionAccount, Transaction, TransactionBreakdown, Tag, TagAssignedToTransaction
 from pydantic import BaseModel
 from typing import List, Optional
 from datetime import datetime
 from fastapi.security import OAuth2PasswordBearer
-from app.auth import create_access_token, decode_access_token, is_admin, hash_password, verify_password
+from .auth import create_access_token, decode_access_token, is_admin, hash_password, verify_password
 from sqlalchemy import func, literal_column, select
 
 # Initialize FastAPI app
