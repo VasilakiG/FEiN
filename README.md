@@ -1,2 +1,2 @@
 # FEiN
-Mobile application for personal finance tracking
+Mobile-first web-application for personal finance tracking
