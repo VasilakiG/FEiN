@@ -4,6 +4,7 @@ target/
 
 # dotenv environment variables file
 .env*
+.venv/
 
 # Avoid committing project-specific files:
 __pycache__/
