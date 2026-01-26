@@ -1,6 +1,7 @@
 import LoginForm from '@/app/ui/login-form';
 import { Suspense } from 'react';
 import { Metadata } from 'next';
+import { poppins } from '@/app/ui/fonts';
 
 export const metadata: Metadata = {
     title: 'Login',

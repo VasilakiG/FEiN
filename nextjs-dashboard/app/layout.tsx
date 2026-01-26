@@ -1,5 +1,5 @@
 import '@/app/ui/global.css';
-import { firaCode } from '@/app/ui/fonts';
+import { poppins } from '@/app/ui/fonts';
 import { Metadata } from 'next';
 
 export const metadata: Metadata = {
@@ -17,7 +17,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={`${firaCode.className} antialiased`}>{children}</body>
+      <body className={`${poppins.className} antialiased bg-black md:bg-black`}>
     </html>
   );
 }

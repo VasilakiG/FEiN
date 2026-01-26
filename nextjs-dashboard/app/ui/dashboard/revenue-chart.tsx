@@ -1,6 +1,6 @@
 import { generateYAxis } from '@/app/lib/utils';
 import { CalendarIcon } from '@heroicons/react/24/outline';
-import { firaCode } from '@/app/ui/fonts';
+import { poppins } from '@/app/ui/fonts';
 import { Revenue } from '@/app/lib/definitions';
 import { fetchRevenue } from '@/app/lib/data';
 
@@ -22,7 +22,7 @@ export default async function RevenueChart() {
 
   return (
     <div className="w-full md:col-span-4">
-      <h2 className={`${firaCode.className} mb-4 text-xl md:text-2xl`}>
+      <h2 className={`${poppins.className} mb-4 text-xl md:text-2xl`}>
         Recent Revenue
       </h2>
 

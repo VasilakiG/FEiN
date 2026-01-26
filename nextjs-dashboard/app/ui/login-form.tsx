@@ -1,6 +1,6 @@
 'use client';
 
-import { firaCode } from '@/app/ui/fonts';
+import { poppins } from '@/app/ui/fonts';
 import {
   AtSymbolIcon,
   KeyIcon,
