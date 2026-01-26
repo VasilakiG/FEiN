@@ -18,6 +18,27 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${poppins.className} antialiased bg-black md:bg-black`}>
+        <div className="min-h-screen flex items-center justify-center">
+          {/* Phone shell */}
+          <div
+            className="
+              w-full
+              h-screen
+              md:h-[800px]
+              md:max-h-[90vh]
+              md:w-[390px]
+              shadow-xl
+              md:rounded-2xl
+              overflow-hidden
+              flex 
+              flex-col
+              bg-transparent
+            "
+          >
+            {children}
+          </div>
+        </div>
+      </body>
     </html>
   );
 }
