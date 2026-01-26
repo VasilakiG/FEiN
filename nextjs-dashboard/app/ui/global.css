@@ -14,3 +14,15 @@ input[type='number']::-webkit-outer-spin-button {
   -webkit-appearance: none;
   margin: 0;
 }
+
+html,
+body {
+  height: 100%;
+  overscroll-behavior: none;
+}
+
+@layer utilities {
+  .bg-fein-login {
+    background: linear-gradient(180deg, #249e86 0%, #1d7f6a 100%);
+  }
+}

@@ -9,13 +9,39 @@ export const metadata: Metadata = {
 
 export default function LoginPage() {
     return (
-        <main className="flex items-center justify-center md:h-screen">
-            <div className="relative mx-auto flex w-full max-w-[400px] flex-col space-y-2.5 p-4 md:-mt-32">
+        <>
+            <main
+                className="
+                    flex-1
+                    flex
+                    flex-col
+                    items-center
+                    justify-center 
+                    md:justify-center
+                    px-4
+                    bg-fein-login
+                    mt-[-80]
+                "
+            >
+                <h1
+                    className={`${poppins.className} 
+                        text-[40px] 
+                        leading-tight
+                        tracking-tight
+                        font-semibold 
+                        text-center 
+                        text-white 
+                        antialiased
+                    `}
+                >
+                    Welcome to<br />
+                    FEiN
+                </h1>
 
                 <Suspense>
                     <LoginForm />
                 </Suspense>
-            </div>
-        </main>
+            </main>
+        </>
     );
 }
