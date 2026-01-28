@@ -1,6 +1,10 @@
 import type { NextAuthConfig } from 'next-auth';
 
+const AUTH_ROUTES = ['/login', '/register'];
+const PUBLIC_ROUTES = ['/'];
+
 export const authConfig = {
+
     pages: {
         signIn: '/login',
     },
@@ -21,10 +25,20 @@ export const authConfig = {
 
         authorized({ auth, request: { nextUrl } }) {
             const isLoggedIn = !!auth?.user;
-            const isOnApp = nextUrl.pathname.startsWith('/home');
+            const { pathname } = nextUrl;
 
-            if (isOnApp && !isLoggedIn) return false;
-            if (!isOnApp && isLoggedIn && nextUrl.pathname.startsWith('/login')) {
+            const isAuthRoute = AUTH_ROUTES.some((route) =>
+                pathname.startsWith(route)
+            );
+            const isPublicRoute = PUBLIC_ROUTES.includes(pathname);
+
+            // Not logged in & trying to access protected route
+            if (!isLoggedIn && !isAuthRoute && !isPublicRoute) {
+                return false; // NextAuth will redirect to /login
+            }
+
+            // Logged in & trying to access auth or landing pages
+            if (isLoggedIn && (isAuthRoute || isPublicRoute)) {
                 return Response.redirect(new URL('/home', nextUrl));
             }
 
