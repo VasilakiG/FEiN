@@ -19,7 +19,6 @@ export default function LoginPage() {
                     justify-center 
                     md:justify-center
                     px-4
-                    bg-fein-login
                     mt-[-80]
                 "
             >

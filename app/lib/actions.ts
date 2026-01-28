@@ -28,6 +28,9 @@ export async function authenticate(
     }
 }
 
+export async function register() {
+}
+
 const FormSchema = z.object({
     id: z.string(),
     customerId: z.string().min(1, 'Please select a customer.'),
