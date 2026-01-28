@@ -22,7 +22,7 @@ body {
 }
 
 @layer utilities {
-  .bg-fein-login {
+  .bg-fein {
     background: linear-gradient(180deg, #249e86 0%, #1d7f6a 100%);
   }
 }

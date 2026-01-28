@@ -17,7 +17,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={`${poppins.className} antialiased bg-black md:bg-black`}>
+      <body className={`${poppins.className} antialiased bg-black md:bg-black overflow-hidden`}>
         <div className="min-h-screen flex items-center justify-center">
           {/* Phone shell */}
           <div
@@ -32,7 +32,7 @@ export default function RootLayout({
               overflow-hidden
               flex 
               flex-col
-              bg-transparent
+              bg-fein
             "
           >
             {children}

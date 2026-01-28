@@ -9,7 +9,6 @@ export default function AuthLayout({
         flex-1
         flex
         flex-col
-        bg-fein-login
       "
         >
             {children}

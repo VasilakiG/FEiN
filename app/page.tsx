@@ -13,7 +13,6 @@ export default function Page() {
                     justify-center 
                     md:justify-center
                     px-4
-                    bg-fein-login
                     mt-[-80]
                 "
       >
