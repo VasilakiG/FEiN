@@ -7,6 +7,7 @@ import { signIn } from '@/auth';
 import bcrypt from "bcryptjs";
 import { AuthError } from 'next-auth';
 import { redirect } from 'next/navigation';
+import { requireAuth } from '@/app/lib/auth-utils';
 
 const sql = postgres(process.env.POSTGRES_URL!, { ssl: 'require' });
 
@@ -105,6 +106,9 @@ export type State = {
 }
 
 export async function createInvoice(prevState: State, formData: FormData) {
+    const session = await requireAuth();
+    const userId = session.user?.id; // userId is now trusted & typed
+
     const validatedFields = CreateInvoice.safeParse({
         customerId: formData.get('customerId'),
         amount: formData.get('amount'),
