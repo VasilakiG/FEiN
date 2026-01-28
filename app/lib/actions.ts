@@ -107,7 +107,7 @@ export type State = {
 
 export async function createInvoice(prevState: State, formData: FormData) {
     const session = await requireAuth();
-    const userId = session.user?.id; // userId is now trusted & typed
+    const userId = session.user.id; // userId is now trusted & typed
 
     const validatedFields = CreateInvoice.safeParse({
         customerId: formData.get('customerId'),
