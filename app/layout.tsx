@@ -4,8 +4,8 @@ import { Metadata } from 'next';
 
 export const metadata: Metadata = {
   title: {
-    template: '%s | FEiN Dashboard',
-    default: 'FEiN Dashboard',
+    template: '%s | FEiN',
+    default: 'FEiN',
   },
   description: 'Mobile-first web-application for personal finance tracking',
 };
