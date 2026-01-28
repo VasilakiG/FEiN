@@ -146,7 +146,7 @@ export default function RegisterForm() {
         </Link>
       </p>
 
-      {typeof errorMessage === 'string' && errorMessage && (
+      {errorMessage && (
         <div
           className="flex h-8 items-end space-x-1"
           aria-live="polite"

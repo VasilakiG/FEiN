@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
 import postgres from 'postgres';
 import { signIn } from '@/auth';
+import bcrypt from "bcryptjs";
 import { AuthError } from 'next-auth';
 import { redirect } from 'next/navigation';
 
@@ -34,7 +35,50 @@ export async function authenticate(
     }
 }
 
-export async function register() {
+export async function register(
+    prevState: string | undefined,
+    formData: FormData,
+) {
+    const schema = z.object({
+        name: z.string().min(1),
+        email: z.string().email(),
+        password: z.string().min(6),
+        redirectTo: z.string().optional(),
+    });
+
+    const parsed = schema.safeParse({
+        name: formData.get('name'),
+        email: formData.get('email'),
+        password: formData.get('password'),
+        redirectTo: formData.get('redirectTo'),
+    });
+
+    if (!parsed.success) {
+        return 'Invalid form data.';
+    }
+
+    const { name, email, password, redirectTo } = parsed.data;
+
+    const existing =
+        await sql`SELECT id FROM users WHERE email=${email}`;
+
+    if (existing.length > 0) {
+        return 'User already exists.';
+    }
+
+    const hashed = await bcrypt.hash(password, 10);
+
+    await sql`
+    INSERT INTO users (name, email, password)
+    VALUES (${name}, ${email}, ${hashed})
+  `;
+
+    // auto-login
+    await signIn('credentials', {
+        email,
+        password,
+        redirectTo: redirectTo || '/home',
+    });
 }
 
 const FormSchema = z.object({
