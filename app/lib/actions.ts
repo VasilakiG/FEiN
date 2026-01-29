@@ -60,6 +60,10 @@ export async function register(
 
     const { name, email, password, redirectTo } = parsed.data;
 
+    // sanitize redirect
+    const safeRedirect =
+        redirectTo?.startsWith('/') ? redirectTo : '/home';
+
     const existing =
         await sql`SELECT id FROM users WHERE email=${email}`;
 
@@ -69,17 +73,27 @@ export async function register(
 
     const hashed = await bcrypt.hash(password, 10);
 
-    await sql`
-    INSERT INTO users (name, email, password)
-    VALUES (${name}, ${email}, ${hashed})
-  `;
+    try {
+        await sql`
+            INSERT INTO users (name, email, password)
+            VALUES (${name}, ${email}, ${hashed})
+        `;
+    } catch {
+        return 'Failed to create user.';
+    }
 
-    // auto-login
-    await signIn('credentials', {
-        email,
-        password,
-        redirectTo: redirectTo || '/home',
-    });
+    try {
+        await signIn('credentials', {
+            email,
+            password,
+            redirectTo: safeRedirect,
+        });
+    } catch (error) {
+        if (error instanceof AuthError) {
+            return 'Account created, but auto-login failed. Please log in.';
+        }
+        throw error;
+    }
 }
 
 const FormSchema = z.object({
