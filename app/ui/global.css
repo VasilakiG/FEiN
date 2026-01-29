@@ -26,3 +26,7 @@ body {
     background: linear-gradient(180deg, #249e86 0%, #1d7f6a 100%);
   }
 }
+
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
