@@ -17,7 +17,9 @@ export async function authenticate(
 ) {
     try {
         const redirectTo =
-            (formData.get('redirectTo') as string) || '/home';
+            (formData.get('redirectTo') as string)?.startsWith('/')
+                ? (formData.get('redirectTo') as string)
+                : '/home';
 
         await signIn('credentials', {
             ...Object.fromEntries(formData),
