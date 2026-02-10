@@ -53,7 +53,7 @@ export default function RegisterForm() {
             `}
             type="text"
             name="name"
-            placeholder="Full name"
+            placeholder="Name"
             required
           />
           <UserIcon className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-white/70" />
@@ -128,7 +128,7 @@ export default function RegisterForm() {
         `}
         aria-disabled={isPending}
       >
-        Create account
+        Register
       </Button>
 
       <p

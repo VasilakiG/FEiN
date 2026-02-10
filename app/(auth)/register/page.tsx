@@ -31,8 +31,8 @@ export default function RegisterPage() {
           antialiased
         `}
             >
-                Create<br />
-                Account
+                Create an<br />
+                account
             </h1>
 
             <Suspense>
