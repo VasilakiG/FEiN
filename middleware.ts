@@ -5,5 +5,15 @@ export default NextAuth(authConfig).auth;
 
 export const config = {
     // https://nextjs.org/docs/app/api-reference/file-conventions/proxy#matcher
-    matcher: ['/((?!api|_next/static|_next/image|.*\\.png$).*)'],
+    matcher: [
+        /*
+          Match all routes except:
+          - api
+          - _next/static
+          - _next/image
+          - favicon
+          - png images
+        */
+        '/((?!api|_next/static|_next/image|favicon.ico|.*\\.png$).*)',
+    ],
 };
