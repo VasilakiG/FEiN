@@ -2,8 +2,8 @@
 // It describes the shape of the data, and what data type each property should accept.
 
 export type User = {
-  user_id: string;
-  user_name: string;
+  id: string;
+  name: string;
   email: string;
   password: string;
 };
