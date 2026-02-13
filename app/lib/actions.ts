@@ -40,14 +40,14 @@ export async function register(
     formData: FormData,
 ) {
     const schema = z.object({
-        name: z.string().min(1),
+        user_name: z.string().min(1),
         email: z.string().email(),
         password: z.string().min(6),
         redirectTo: z.string().optional(),
     });
 
     const parsed = schema.safeParse({
-        name: formData.get('name'),
+        user_name: formData.get('user_name'),
         email: formData.get('email'),
         password: formData.get('password'),
         redirectTo: formData.get('redirectTo'),
@@ -57,14 +57,14 @@ export async function register(
         return 'Invalid form data.';
     }
 
-    const { name, email, password, redirectTo } = parsed.data;
+    const { user_name, email, password, redirectTo } = parsed.data;
 
     // sanitize redirect
     const safeRedirect =
         redirectTo?.startsWith('/') ? redirectTo : '/home';
 
     const existing =
-        await sql`SELECT id FROM users WHERE email=${email}`;
+        await sql`SELECT user_id FROM user WHERE email=${email}`;
 
     if (existing.length > 0) {
         return 'User already exists.';
@@ -74,8 +74,8 @@ export async function register(
 
     try {
         await sql`
-            INSERT INTO users (name, email, password)
-            VALUES (${name}, ${email}, ${hashed})
+            INSERT INTO user (user_name, email, password)
+            VALUES (${user_name}, ${email}, ${hashed})
         `;
     } catch {
         return 'Failed to create user.';

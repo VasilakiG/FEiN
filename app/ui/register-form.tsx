@@ -52,7 +52,7 @@ export default function RegisterForm() {
               focus:ring-white/50
             `}
             type="text"
-            name="name"
+            name="user_name"
             placeholder="Name"
             required
           />
