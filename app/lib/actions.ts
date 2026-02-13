@@ -5,7 +5,6 @@ import postgres from 'postgres';
 import { signIn } from '@/auth';
 import bcrypt from "bcryptjs";
 import { AuthError } from 'next-auth';
-import { requireAuth } from '@/app/lib/auth-utils';
 
 const sql = postgres(process.env.POSTGRES_URL!, { ssl: 'require' });
 
