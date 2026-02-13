@@ -11,25 +11,25 @@ export default function RegisterPage() {
     return (
         <main
             className="
-        flex-1
-        flex
-        flex-col
-        items-center
-        justify-center
-        px-4
-        mt-[-80px]
-      "
+                flex-1
+                flex
+                flex-col
+                items-center
+                justify-center
+                px-4
+                mt-[-80px]
+            "
         >
             <h1
                 className={`${poppins.className}
-          text-[40px]
-          leading-tight
-          tracking-tight
-          font-semibold
-          text-center
-          text-white
-          antialiased
-        `}
+                    text-[40px]
+                    leading-tight
+                    tracking-tight
+                    font-semibold
+                    text-center
+                    text-white
+                    antialiased
+                `}
             >
                 Create an<br />
                 account
