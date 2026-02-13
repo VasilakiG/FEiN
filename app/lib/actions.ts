@@ -64,7 +64,7 @@ export async function register(
         redirectTo?.startsWith('/') ? redirectTo : '/home';
 
     const existing =
-        await sql`SELECT user_id FROM user WHERE email=${email}`;
+        await sql`SELECT id FROM user WHERE email=${email}`;
 
     if (existing.length > 0) {
         return 'User already exists.';
