@@ -14,13 +14,18 @@ export default async function AppLayout({
     }
 
     return (
-        <div className="flex-1 flex flex-col h-full">
-            <main className="flex-1 flex flex-col pb-24">
+        <div className="relative h-full overflow-hidden">
+            {/* Scrollable content inside phone shell */}
+            <main className="h-full overflow-y-auto no-scrollbar pb-[120px]">
                 {children}
             </main>
 
-            {/* Fixed bottom navigation */}
-            <BottomNav />
+            {/* Bottom nav FLOATS INSIDE the phone shell */}
+            <div className="absolute inset-x-0 bottom-0 z-50 flex justify-center pb-4 pointer-events-none">
+                <div className="w-full pointer-events-auto">
+                    <BottomNav />
+                </div>
+            </div>
         </div>
     );
 }

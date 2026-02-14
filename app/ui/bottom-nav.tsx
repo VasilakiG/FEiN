@@ -30,7 +30,7 @@ export default function BottomNav() {
                     pointer-events-auto
                     pb-safe
                     mx-4
-                    mb-4
+                    mb-0
                     h-14
                     rounded-2xl
                     bg-black/40

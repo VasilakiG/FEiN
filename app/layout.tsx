@@ -17,11 +17,14 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={`${poppins.className} antialiased bg-black md:bg-black overflow-hidden`}>
-        <div className="min-h-screen flex items-center justify-center">
+      {/* lock page scroll; the app will scroll inside the phone shell */}
+      <body className={`${poppins.className} antialiased bg-black overflow-hidden`}>
+        {/* Outer background wrapper */}
+        <div className="min-h-screen w-full xs:bg-fein  md:bg-black flex items-center justify-center">
           {/* Phone shell */}
           <div
             className="
+              relative
               w-full
               h-screen
               md:h-[800px]
