@@ -7,18 +7,39 @@ import bcrypt from 'bcrypt';
 
 const sql = postgres(process.env.POSTGRES_URL!, { ssl: 'require' });
 
-export async function updateProfile(formData: FormData) {
-    const session = await auth();
+type ActionResult = string | undefined; // string = error message, undefined = success
 
-    const userId = Number(session?.user?.id);
-    if (!Number.isInteger(userId)) {
-        throw new Error('Invalid user ID in session');
+export async function updateProfile(
+    _prevState: ActionResult,
+    formData: FormData
+): Promise<ActionResult> {
+    const session = await auth();
+    if (!session?.user?.id) {
+        redirect('/login');
     }
 
-    if (!session?.user?.id) redirect('/login');
+    const userId = Number(session.user.id);
+    if (!Number.isInteger(userId)) {
+        return 'Invalid session. Please log in again.';
+    }
+    const name = String(formData.get('name') ?? '').trim();
+    const email = String(formData.get('email') ?? '').trim().toLowerCase();
 
-    const name = formData.get('name') as string;
-    const email = formData.get('email') as string;
+    if (!name) {
+        return 'Name is required.';
+    }
+    if (!email || !email.includes('@')) {
+        return 'Please enter a valid email.';
+    }
+
+    // Email already exists check
+    const existing = await sql`
+        SELECT user_id FROM "user"
+        WHERE email = ${email} AND user_id != ${userId}
+    `;
+    if (existing.length > 0) {
+        return 'Email already exists.';
+    }
 
     await sql`
         UPDATE "user"
@@ -30,31 +51,39 @@ export async function updateProfile(formData: FormData) {
     redirect('/profile');
 }
 
-export async function updatePassword(formData: FormData) {
+export async function updatePassword(
+    _prevState: ActionResult,
+    formData: FormData
+): Promise<ActionResult> {
     const session = await auth();
-
-    const userId = Number(session?.user?.id);
-    if (!Number.isInteger(userId)) {
-        throw new Error('Invalid user ID in session');
+    if (!session?.user?.id) {
+        redirect('/login');
     }
 
-    if (!session?.user?.id) redirect('/login');
+    const userId = Number(session.user.id);
+    if (!Number.isInteger(userId)) {
+        return 'Invalid session. Please log in again.';
+    }
+    const currentPassword = String(formData.get('currentPassword') ?? '');
+    const newPassword = String(formData.get('newPassword') ?? '');
 
-    const currentPassword = formData.get('currentPassword') as string;
-    const newPassword = formData.get('newPassword') as string;
+    if (newPassword.length < 6) {
+        return 'New password must be at least 6 characters.';
+    }
 
     const users = await sql`
         SELECT password
         FROM "user"
         WHERE user_id = ${userId}
     `;
-
     const user = users[0];
-    if (!user) redirect('/login');
+    if (!user) {
+        return 'User not found. Please log in again.';
+    }
 
     const match = await bcrypt.compare(currentPassword, user.password);
     if (!match) {
-        throw new Error('Current password is incorrect');
+        return 'Current password is incorrect.';
     }
 
     const hashed = await bcrypt.hash(newPassword, 10);
