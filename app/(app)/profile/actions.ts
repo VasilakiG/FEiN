@@ -9,6 +9,12 @@ const sql = postgres(process.env.POSTGRES_URL!, { ssl: 'require' });
 
 export async function updateProfile(formData: FormData) {
     const session = await auth();
+
+    const userId = Number(session?.user?.id);
+    if (!Number.isInteger(userId)) {
+        throw new Error('Invalid user ID in session');
+    }
+
     if (!session?.user?.id) redirect('/login');
 
     const name = formData.get('name') as string;
@@ -18,7 +24,7 @@ export async function updateProfile(formData: FormData) {
         UPDATE "user"
         SET user_name = ${name},
             email = ${email}
-        WHERE user_id = ${session.user.id}
+        WHERE user_id = ${userId}
     `;
 
     redirect('/profile');
@@ -26,6 +32,12 @@ export async function updateProfile(formData: FormData) {
 
 export async function updatePassword(formData: FormData) {
     const session = await auth();
+
+    const userId = Number(session?.user?.id);
+    if (!Number.isInteger(userId)) {
+        throw new Error('Invalid user ID in session');
+    }
+
     if (!session?.user?.id) redirect('/login');
 
     const currentPassword = formData.get('currentPassword') as string;
@@ -34,7 +46,7 @@ export async function updatePassword(formData: FormData) {
     const users = await sql`
         SELECT password
         FROM "user"
-        WHERE user_id = ${session.user.id}
+        WHERE user_id = ${userId}
     `;
 
     const user = users[0];
@@ -50,7 +62,7 @@ export async function updatePassword(formData: FormData) {
     await sql`
         UPDATE "user"
         SET password = ${hashed}
-        WHERE user_id = ${session.user.id}
+        WHERE user_id = ${userId}
     `;
 
     redirect('/profile');
