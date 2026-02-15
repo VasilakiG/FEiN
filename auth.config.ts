@@ -39,7 +39,7 @@ export const authConfig = {
 
             // Logged in & trying to access auth or landing pages
             if (isLoggedIn && (isAuthRoute || isPublicRoute)) {
-                return Response.redirect(new URL('/home', nextUrl));
+                return Response.redirect(new URL('/dashboard', nextUrl));
             }
 
             return true;

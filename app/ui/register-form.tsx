@@ -15,7 +15,7 @@ import Link from 'next/link';
 
 export default function RegisterForm() {
   const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get('callbackUrl') || '/home';
+  const callbackUrl = searchParams.get('callbackUrl') || '/dashboard';
   const [errorMessage, formAction, isPending] = useActionState(
     register,
     undefined,

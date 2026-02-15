@@ -11,7 +11,7 @@ import {
 } from '@heroicons/react/24/outline';
 
 const TABS = [
-    { href: '/home', icon: HomeIcon },
+    { href: '/dashboard', icon: HomeIcon },
     { href: '/history', icon: ClockIcon },
     { href: '/analytics', icon: ChartBarIcon },
     { href: '/profile', icon: UserIcon },
