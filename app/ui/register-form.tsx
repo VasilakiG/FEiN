@@ -9,7 +9,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { Button } from './button';
 import { useActionState } from 'react';
-import { register } from '@/app/lib/actions';
+import { register } from '@/app/(auth)/actions';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 

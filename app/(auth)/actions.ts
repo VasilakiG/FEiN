@@ -16,7 +16,7 @@ export async function authenticate(
         const redirectTo =
             (formData.get('redirectTo') as string)?.startsWith('/')
                 ? (formData.get('redirectTo') as string)
-                : '/home';
+                : '/dashboard';
 
         await signIn('credentials', {
             ...Object.fromEntries(formData),
@@ -61,7 +61,7 @@ export async function register(
 
     // sanitize redirect
     const safeRedirect =
-        redirectTo?.startsWith('/') ? redirectTo : '/home';
+        redirectTo?.startsWith('/') ? redirectTo : '/dashboard';
 
     const existing =
         await sql`SELECT user_id FROM "user" WHERE email=${email}`;
