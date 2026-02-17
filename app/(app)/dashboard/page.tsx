@@ -180,7 +180,7 @@ export default async function DashboardPage() {
                                         className={`text-xl font-semibold ${isNegative ? 'text-amber-400' : 'text-emerald-300'
                                             }`}
                                     >
-                                        formatMKD(net)
+                                        {formatMKD(net)}
                                     </div>
                                 </div>
                             );
