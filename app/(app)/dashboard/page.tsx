@@ -3,15 +3,25 @@ import { redirect } from 'next/navigation';
 import { poppins } from '@/app/ui/fonts';
 import { getDashboardData } from '@/app/lib/queries';
 
-function formatMKD(value: string | number, opts?: { signed?: boolean }) {
-    const n = typeof value === 'number' ? value : Number(value);
-    const sign = opts?.signed && n > 0 ? '+' : '';
-    // screenshot uses commas and no decimals in big numbers
+function formatMKD(value: string | number) {
+    let n = typeof value === 'number' ? value : Number(value);
+
+    // Normalize -0 to 0
+    if (Object.is(n, -0) || Math.abs(n) < 0.005) {
+        n = 0;
+    }
+
     const formatted = new Intl.NumberFormat('en-US', {
         maximumFractionDigits: 0,
     }).format(Math.abs(n));
-    return `${sign}MKD ${formatted}`;
+
+    if (n < 0) {
+        return `MKD -${formatted}`;
+    }
+
+    return `MKD ${formatted}`;
 }
+
 
 export default async function DashboardPage() {
     const session = await auth();
@@ -170,9 +180,7 @@ export default async function DashboardPage() {
                                         className={`text-xl font-semibold ${isNegative ? 'text-amber-400' : 'text-emerald-300'
                                             }`}
                                     >
-                                        {isNegative
-                                            ? `-${formatMKD(Math.abs(net))}`
-                                            : formatMKD(net, { signed: true })}
+                                        formatMKD(net)
                                     </div>
                                 </div>
                             );
