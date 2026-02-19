@@ -95,16 +95,21 @@ export default function AccountsSection({ userId, accounts }: Props) {
         return [...list, ...appended];
     }, [accounts, accountsById, order]);
 
-    const hasAccounts = orderedAccounts.length > 0;
-    const moreCount = Math.max(0, orderedAccounts.length - 1);
+    const count = orderedAccounts.length;
+    const hasAccounts = count > 0;
+    const canCollapse = count > 1;
+    const canReorder = count > 1;
+    const moreCount = Math.max(0, count - 1);
 
     useEffect(() => {
-        if (!hasAccounts) {
+        // If 0 or 1 accounts, collapse/edit should not be possible
+        if (!canCollapse && collapsed) {
             setCollapsed(false);
+        }
+        if (!canReorder && editMode) {
             setEditMode(false);
         }
-    }, [hasAccounts]);
-
+    }, [canCollapse, canReorder, collapsed, editMode]);
 
     function persist(nextOrder: number[]) {
         setOrder(nextOrder);
@@ -147,9 +152,6 @@ export default function AccountsSection({ userId, accounts }: Props) {
         move(idx, idx + 1);
     }
 
-    // Collapsed “stack” view: show top card + 2 peeks
-    const stackPreview = orderedAccounts.slice(0, 3);
-
     return (
         <div className="mt-8">
             {/* Header row */}
@@ -157,17 +159,19 @@ export default function AccountsSection({ userId, accounts }: Props) {
                 <div className="text-white/90 text-xl font-semibold">Accounts</div>
 
                 <div className="flex items-center gap-3">
-                    {hasAccounts && !collapsed && (
+                    {canCollapse && !collapsed && (
                         <button
                             type="button"
-                            onClick={() => setCollapsed(true)}
+                            onClick={() => {
+                                setCollapsed(true);
+                            }}
                             className="text-white/60 hover:text-white/90 text-sm transition"
                         >
                             Collapse
                         </button>
                     )}
 
-                    {hasAccounts && (
+                    {canReorder && (
                         <button
                             type="button"
                             onClick={() => {
@@ -185,7 +189,7 @@ export default function AccountsSection({ userId, accounts }: Props) {
             </div>
 
             {/* Collapsed stack */}
-            {collapsed && hasAccounts ? (
+            {canCollapse && collapsed ? (
                 <div className="mt-5 relative">
                     {/* Ghost cards behind (blank, same style) */}
                     <div
@@ -243,7 +247,9 @@ export default function AccountsSection({ userId, accounts }: Props) {
                         {moreCount > 0 && (
                             <button
                                 type="button"
-                                onClick={() => setCollapsed(false)}
+                                onClick={() => {
+                                    setCollapsed(false);
+                                }}
                                 className="text-white/60 hover:text-white/90 text-sm transition"
                             >
                                 Expand {moreCount} more
@@ -260,7 +266,9 @@ export default function AccountsSection({ userId, accounts }: Props) {
                                 <div
                                     key={acc.transaction_account_id}
                                     draggable={editMode}
-                                    onDragStart={() => setDragId(acc.transaction_account_id)}
+                                    onDragStart={() => {
+                                        setDragId(acc.transaction_account_id);
+                                    }}
                                     onDragOver={(e) => {
                                         if (!editMode) {
                                             return;
@@ -289,14 +297,18 @@ export default function AccountsSection({ userId, accounts }: Props) {
                                         <div className="mt-2 flex justify-end gap-2">
                                             <button
                                                 type="button"
-                                                onClick={() => moveUp(idx)}
+                                                onClick={() => {
+                                                    moveUp(idx);
+                                                }}
                                                 className="text-xs text-white/60 hover:text-white/90 border border-white/10 rounded-lg px-3 py-1 bg-black/20"
                                             >
                                                 Up
                                             </button>
                                             <button
                                                 type="button"
-                                                onClick={() => moveDown(idx)}
+                                                onClick={() => {
+                                                    moveDown(idx);
+                                                }}
                                                 className="text-xs text-white/60 hover:text-white/90 border border-white/10 rounded-lg px-3 py-1 bg-black/20"
                                             >
                                                 Down
