@@ -159,7 +159,7 @@ export default function AccountsSection({ userId, accounts }: Props) {
                 <div className="text-white/90 text-xl font-semibold">Accounts</div>
 
                 <div className="flex items-center gap-3">
-                    {canCollapse && !collapsed && (
+                    {canCollapse && !collapsed && !editMode && (
                         <button
                             type="button"
                             onClick={() => {
