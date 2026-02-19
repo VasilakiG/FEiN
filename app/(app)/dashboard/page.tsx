@@ -2,6 +2,8 @@ import { auth } from '@/auth';
 import { redirect } from 'next/navigation';
 import { poppins } from '@/app/ui/fonts';
 import { getDashboardData } from '@/app/lib/queries';
+import AccountsSection from './accounts-section';
+
 
 function formatMKD(value: string | number) {
     let n = typeof value === 'number' ? value : Number(value);
@@ -71,30 +73,7 @@ export default async function DashboardPage() {
             </div>
 
             {/* Accounts (stacked cards like screenshot) */}
-            <div className="mt-8 space-y-5">
-                {data.accounts.map((acc) => (
-                    <div
-                        key={acc.transaction_account_id}
-                        className="
-                            rounded-2xl
-                            px-6
-                            py-6
-                            bg-blue-600/20
-                            border
-                            border-white/10
-                            backdrop-blur-md
-                            shadow-lg
-                        "
-                    >
-                        <div className="text-white text-2xl font-semibold">
-                            {acc.account_name ?? 'Account'}
-                        </div>
-                        <div className="mt-3 text-white text-2xl font-semibold">
-                            {formatMKD(acc.balance)}
-                        </div>
-                    </div>
-                ))}
-            </div>
+            <AccountsSection userId={userId} accounts={data.accounts} />
 
             {/* Quick analytics cards */}
             <div className="mt-8 grid grid-cols-3 gap-3">
