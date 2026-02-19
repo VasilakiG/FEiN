@@ -213,27 +213,30 @@ export default function AccountsSection({ userId, accounts }: Props) {
                             filter: 'saturate(0.95)',
                         }}
                     />
-                    <div
-                        aria-hidden
-                        className="
-                            absolute
-                            left-1/2
-                            top-10
-                            -translate-x-1/2
-                            w-[92%]
-                            h-[112px]
-                            rounded-2xl
-                            bg-blue-700/20
-                            border border-white/10
-                            backdrop-blur-md
-                            shadow-md
-                        "
-                        style={{
-                            transform: 'translateY(45px) scale(0.82)',
-                            zIndex: 0,
-                            filter: 'saturate(0.95)',
-                        }}
-                    />
+
+                    {moreCount > 1 && (
+                        <div
+                            aria-hidden
+                            className="
+                                absolute
+                                left-1/2
+                                top-10
+                                -translate-x-1/2
+                                w-[92%]
+                                h-[112px]
+                                rounded-2xl
+                                bg-blue-700/20
+                                border border-white/10
+                                backdrop-blur-md
+                                shadow-md
+                            "
+                            style={{
+                                transform: 'translateY(45px) scale(0.82)',
+                                zIndex: 0,
+                                filter: 'saturate(0.95)',
+                            }}
+                        />
+                    )}
 
                     {/* the actual top card */}
                     <div className="relative z-10">
