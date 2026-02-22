@@ -26,6 +26,19 @@ export type DashboardData = {
     recentTransactions: DashboardTransaction[];
 };
 
+export type TransactionAccountLite = {
+    transaction_account_id: number;
+    account_name: string | null;
+};
+
+export type HistoryTransaction = {
+    transaction_id: number;
+    transaction_name: string | null;
+    date: string; // ISO from PG
+    net_amount: string; // numeric comes as string via postgres.js
+    tags: string[]; // aggregated
+};
+
 function startOfMonth(d: Date) {
     return new Date(d.getFullYear(), d.getMonth(), 1);
 }
@@ -148,4 +161,146 @@ export async function getDashboardData(userId: number): Promise<DashboardData> {
         dailySpendingAvgMonthToDate,
         recentTransactions,
     };
+}
+
+export async function getUserTransactionAccounts(userId: number) {
+    const rows = await sql<TransactionAccountLite[]>`
+        SELECT
+            ta.transaction_account_id,
+            ta.account_name
+        FROM transaction_account ta
+        WHERE ta.user_id = ${userId}
+        ORDER BY ta.transaction_account_id ASC
+    `;
+    return rows;
+}
+
+export async function getUserTagsForHistory(userId: number) {
+    // Only tags that appear in user's transactions (through breakdown -> account -> user)
+    const rows = await sql<{ tag_name: string }[]>`
+        SELECT DISTINCT tg.tag_name
+        FROM tag tg
+        JOIN tag_assigned_to_transaction tat ON tat.tag_id = tg.tag_id
+        JOIN transaction t ON t.transaction_id = tat.transaction_id
+        JOIN transaction_breakdown tb ON tb.transaction_id = t.transaction_id
+        JOIN transaction_account ta ON ta.transaction_account_id = tb.transaction_account_id
+        WHERE ta.user_id = ${userId}
+        ORDER BY tg.tag_name ASC
+    `;
+    return rows.map((r) => r.tag_name);
+}
+
+export const HISTORY_ITEMS_PER_PAGE = 10;
+
+export async function getHistoryTransactions(params: {
+    userId: number;
+    accountId?: number;
+    query?: string; // searches transaction_name, tag_name, account_name
+    tags?: string[]; // intersection: transaction must have ALL of these tags
+    page?: number;
+}) {
+    const { userId, accountId, query, tags, page = 1 } = params;
+    const offset = (page - 1) * HISTORY_ITEMS_PER_PAGE;
+    const searchPattern = query ? `%${query}%` : null;
+    const tagFilter = tags && tags.length > 0 ? tags : null;
+    const tagCount = tagFilter ? tagFilter.length : 0;
+
+    const rows = await sql<HistoryTransaction[]>`
+        SELECT
+            t.transaction_id,
+            t.transaction_name,
+            t.date::text AS date,
+            (
+                COALESCE(SUM(COALESCE(tb.earned_amount, 0)), 0)
+                -
+                COALESCE(SUM(COALESCE(tb.spent_amount, 0)), 0)
+            )::text AS net_amount,
+            COALESCE(
+                ARRAY_REMOVE(ARRAY_AGG(DISTINCT tg.tag_name), NULL),
+                ARRAY[]::text[]
+            ) AS tags
+        FROM transaction t
+        JOIN transaction_breakdown tb ON tb.transaction_id = t.transaction_id
+        JOIN transaction_account ta ON ta.transaction_account_id = tb.transaction_account_id
+        LEFT JOIN tag_assigned_to_transaction tat ON tat.transaction_id = t.transaction_id
+        LEFT JOIN tag tg ON tg.tag_id = tat.tag_id
+        WHERE ta.user_id = ${userId}
+            AND (${accountId ?? null}::int IS NULL OR tb.transaction_account_id = ${accountId ?? null})
+            AND (
+                ${searchPattern}::text IS NULL
+                OR t.transaction_name ILIKE ${searchPattern}
+                OR ta.account_name ILIKE ${searchPattern}
+                OR EXISTS (
+                    SELECT 1
+                    FROM tag_assigned_to_transaction tat2
+                    JOIN tag tg2 ON tg2.tag_id = tat2.tag_id
+                    WHERE tat2.transaction_id = t.transaction_id
+                        AND tg2.tag_name ILIKE ${searchPattern}
+                )
+            )
+            AND (
+                ${tagCount}::int = 0
+                OR (
+                    SELECT COUNT(DISTINCT tg_f.tag_name)
+                    FROM tag_assigned_to_transaction tat_f
+                    JOIN tag tg_f ON tg_f.tag_id = tat_f.tag_id
+                    WHERE tat_f.transaction_id = t.transaction_id
+                        AND tg_f.tag_name = ANY(${tagFilter ?? []}::text[])
+                ) = ${tagCount}
+            )
+        GROUP BY t.transaction_id
+        ORDER BY t.date DESC
+        LIMIT ${HISTORY_ITEMS_PER_PAGE}
+        OFFSET ${offset}
+    `;
+
+    return rows;
+}
+
+export async function getHistoryTransactionPages(params: {
+    userId: number;
+    accountId?: number;
+    query?: string;
+    tags?: string[];
+}) {
+    const { userId, accountId, query, tags } = params;
+    const searchPattern = query ? `%${query}%` : null;
+    const tagFilter = tags && tags.length > 0 ? tags : null;
+    const tagCount = tagFilter ? tagFilter.length : 0;
+
+    const countResult = await sql<{ count: string }[]>`
+        SELECT COUNT(DISTINCT t.transaction_id)::text AS count
+        FROM transaction t
+        JOIN transaction_breakdown tb ON tb.transaction_id = t.transaction_id
+        JOIN transaction_account ta ON ta.transaction_account_id = tb.transaction_account_id
+        LEFT JOIN tag_assigned_to_transaction tat ON tat.transaction_id = t.transaction_id
+        LEFT JOIN tag tg ON tg.tag_id = tat.tag_id
+        WHERE ta.user_id = ${userId}
+            AND (${accountId ?? null}::int IS NULL OR tb.transaction_account_id = ${accountId ?? null})
+            AND (
+                ${searchPattern}::text IS NULL
+                OR t.transaction_name ILIKE ${searchPattern}
+                OR ta.account_name ILIKE ${searchPattern}
+                OR EXISTS (
+                    SELECT 1
+                    FROM tag_assigned_to_transaction tat2
+                    JOIN tag tg2 ON tg2.tag_id = tat2.tag_id
+                    WHERE tat2.transaction_id = t.transaction_id
+                        AND tg2.tag_name ILIKE ${searchPattern}
+                )
+            )
+            AND (
+                ${tagCount}::int = 0
+                OR (
+                    SELECT COUNT(DISTINCT tg_f.tag_name)
+                    FROM tag_assigned_to_transaction tat_f
+                    JOIN tag tg_f ON tg_f.tag_id = tat_f.tag_id
+                    WHERE tat_f.transaction_id = t.transaction_id
+                        AND tg_f.tag_name = ANY(${tagFilter ?? []}::text[])
+                ) = ${tagCount}
+            )
+    `;
+
+    const totalCount = Number(countResult[0]?.count ?? '0');
+    return Math.ceil(totalCount / HISTORY_ITEMS_PER_PAGE);
 }
