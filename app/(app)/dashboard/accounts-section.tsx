@@ -2,27 +2,13 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import type { DashboardAccount } from '@/app/lib/queries';
+import { formatMKD } from '@/app/lib/utils';
 import { ArrowsUpDownIcon } from '@heroicons/react/24/outline';
 
 type Props = {
     userId: number;
     accounts: DashboardAccount[];
 };
-
-function formatMKD(value: string | number) {
-    let n = typeof value === 'number' ? value : Number(value);
-
-    // normalize -0 to 0
-    if (Object.is(n, -0) || Math.abs(n) < 0.005) {
-        n = 0;
-    }
-
-    const formatted = new Intl.NumberFormat('en-US', {
-        maximumFractionDigits: 0,
-    }).format(Math.abs(n));
-
-    return n < 0 ? `MKD -${formatted}` : `MKD ${formatted}`;
-}
 
 function storageKey(userId: number) {
     return `fein:accountsOrder:v1:${userId}`;

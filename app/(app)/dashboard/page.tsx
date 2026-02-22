@@ -2,27 +2,8 @@ import { auth } from '@/auth';
 import { redirect } from 'next/navigation';
 import { poppins } from '@/app/ui/fonts';
 import { getDashboardData } from '@/app/lib/queries';
+import { formatMKD } from '@/app/lib/utils';
 import AccountsSection from './accounts-section';
-
-
-function formatMKD(value: string | number) {
-    let n = typeof value === 'number' ? value : Number(value);
-
-    // Normalize -0 to 0
-    if (Object.is(n, -0) || Math.abs(n) < 0.005) {
-        n = 0;
-    }
-
-    const formatted = new Intl.NumberFormat('en-US', {
-        maximumFractionDigits: 0,
-    }).format(Math.abs(n));
-
-    if (n < 0) {
-        return `MKD -${formatted}`;
-    }
-
-    return `MKD ${formatted}`;
-}
 
 
 export default async function DashboardPage() {
