@@ -14,25 +14,39 @@ function storageKey(userId: number) {
     return `fein:accountsOrder:v1:${userId}`;
 }
 
+function collapsedKey(userId: number) {
+    return `fein:accountsCollapsed:v1:${userId}`;
+}
+
 export default function AccountsSection({ userId, accounts }: Props) {
-    const [collapsed, setCollapsed] = useState(false);
+    const [collapsed, setCollapsed] = useState(true);
     const [editMode, setEditMode] = useState(false);
 
     // order is stored as list of account ids
     const [order, setOrder] = useState<number[] | null>(null);
 
-    // load order from localStorage
+    // load order and collapsed state from localStorage
     useEffect(() => {
         try {
             const raw = localStorage.getItem(storageKey(userId));
             if (!raw) {
                 setOrder(accounts.map((a) => a.transaction_account_id));
-                return;
+            } else {
+                const parsed = JSON.parse(raw) as number[];
+                setOrder(parsed);
             }
-            const parsed = JSON.parse(raw) as number[];
-            setOrder(parsed);
         } catch {
             setOrder(accounts.map((a) => a.transaction_account_id));
+        }
+
+        try {
+            const savedCollapsed = localStorage.getItem(collapsedKey(userId));
+            if (savedCollapsed !== null) {
+                setCollapsed(savedCollapsed === 'true');
+            }
+            // else stays at the default (true)
+        } catch {
+            // ignore
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [userId]);
@@ -91,11 +105,12 @@ export default function AccountsSection({ userId, accounts }: Props) {
         // If 0 or 1 accounts, collapse/edit should not be possible
         if (!canCollapse && collapsed) {
             setCollapsed(false);
+            localStorage.setItem(collapsedKey(userId), 'false');
         }
         if (!canReorder && editMode) {
             setEditMode(false);
         }
-    }, [canCollapse, canReorder, collapsed, editMode]);
+    }, [canCollapse, canReorder, collapsed, editMode, userId]);
 
     function persist(nextOrder: number[]) {
         setOrder(nextOrder);
@@ -150,6 +165,7 @@ export default function AccountsSection({ userId, accounts }: Props) {
                             type="button"
                             onClick={() => {
                                 setCollapsed(true);
+                                localStorage.setItem(collapsedKey(userId), 'true');
                             }}
                             className="text-white/60 hover:text-white/90 text-sm transition"
                         >
@@ -163,6 +179,7 @@ export default function AccountsSection({ userId, accounts }: Props) {
                             onClick={() => {
                                 setEditMode((v) => !v);
                                 setCollapsed(false); // editing implies expanded
+                                localStorage.setItem(collapsedKey(userId), 'false');
                             }}
                             className="text-white/60 hover:text-white/90 text-sm transition flex items-center"
                             aria-label={editMode ? 'Done reordering' : 'Reorder accounts'}
@@ -238,6 +255,7 @@ export default function AccountsSection({ userId, accounts }: Props) {
                                 type="button"
                                 onClick={() => {
                                     setCollapsed(false);
+                                    localStorage.setItem(collapsedKey(userId), 'false');
                                 }}
                                 className="text-white/60 hover:text-white/90 text-sm transition"
                             >
