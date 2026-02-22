@@ -2,10 +2,8 @@
 
 import { auth } from '@/auth';
 import { redirect } from 'next/navigation';
-import postgres from 'postgres';
+import { sql } from '@/app/lib/db';
 import bcrypt from 'bcrypt';
-
-const sql = postgres(process.env.POSTGRES_URL!, { ssl: 'require' });
 
 type ActionResult = string | undefined; // string = error message, undefined = success
 

@@ -1,12 +1,10 @@
 'use server'
 
 import { z } from 'zod';
-import postgres from 'postgres';
+import { sql } from '@/app/lib/db';
 import { signIn } from '@/auth';
 import bcrypt from "bcryptjs";
 import { AuthError } from 'next-auth';
-
-const sql = postgres(process.env.POSTGRES_URL!, { ssl: 'require' });
 
 export async function authenticate(
     prevState: string | undefined,
