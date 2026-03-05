@@ -115,7 +115,7 @@ export default function AddTransactionForm({
     }));
 
     const inputClasses = `${poppins.className}
-        w-full h-12 rounded-xl
+        w-full min-w-0 max-w-full box-border h-12 rounded-xl
         bg-white/10 border border-white/15
         px-4 text-white text-sm
         placeholder:text-white/40

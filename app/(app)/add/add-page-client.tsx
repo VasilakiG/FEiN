@@ -26,7 +26,7 @@ export default function AddPageClient({
     };
 
     return (
-        <div className="w-full px-6 pt-10 pb-10">
+        <div className="w-full overflow-hidden px-6 pt-10 pb-10">
             <h1
                 className={`${poppins.className}
                     text-[32px] leading-tight tracking-tight
