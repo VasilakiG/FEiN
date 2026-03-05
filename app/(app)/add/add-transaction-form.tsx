@@ -152,13 +152,13 @@ export default function AddTransactionForm({
                 <label className="block text-xs text-white/50 mb-1.5 pl-1">
                     Date
                 </label>
-                <div className="relative">
+                <div className="relative overflow-hidden">
                     <input
                         name="date"
                         type="date"
                         required
                         defaultValue={new Date().toISOString().slice(0, 10)}
-                        className={`${inputClasses} pl-10 [color-scheme:dark]`}
+                        className={`${inputClasses} pl-10 [color-scheme:dark] [&::-webkit-date-and-time-value]:text-left`}
                     />
                     <CalendarIcon className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-white/40" />
                 </div>
