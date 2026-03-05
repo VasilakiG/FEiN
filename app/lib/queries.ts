@@ -140,6 +140,7 @@ export async function getDashboardData(userId: number): Promise<DashboardData> {
             MIN(tag.tag_name) AS primary_tag
         FROM tag_assigned_to_transaction tat
         JOIN tag ON tag.tag_id = tat.tag_id
+        WHERE tag.tag_name NOT LIKE '__note:%'
         GROUP BY tat.transaction_id
         )
         SELECT
@@ -217,52 +218,62 @@ export async function getHistoryTransactions(params: {
     const tagCount = tagFilter ? tagFilter.length : 0;
 
     const rows = await sql<HistoryTransaction[]>`
+        WITH filtered_tx AS (
+            SELECT
+                t.transaction_id,
+                t.transaction_name,
+                t.date,
+                (
+                    COALESCE(SUM(COALESCE(tb.earned_amount, 0)), 0)
+                    -
+                    COALESCE(SUM(COALESCE(tb.spent_amount, 0)), 0)
+                )::text AS net_amount
+            FROM transaction t
+            JOIN transaction_breakdown tb ON tb.transaction_id = t.transaction_id
+            JOIN transaction_account ta ON ta.transaction_account_id = tb.transaction_account_id
+            WHERE ta.user_id = ${userId}
+                AND (${accountId ?? null}::int IS NULL OR tb.transaction_account_id = ${accountId ?? null})
+                AND (
+                    ${searchPattern}::text IS NULL
+                    OR t.transaction_name ILIKE ${searchPattern}
+                    OR ta.account_name ILIKE ${searchPattern}
+                    OR EXISTS (
+                        SELECT 1
+                        FROM tag_assigned_to_transaction tat2
+                        JOIN tag tg2 ON tg2.tag_id = tat2.tag_id
+                        WHERE tat2.transaction_id = t.transaction_id
+                            AND tg2.tag_name ILIKE ${searchPattern}
+                    )
+                )
+                AND (
+                    ${tagCount}::int = 0
+                    OR (
+                        SELECT COUNT(DISTINCT tg_f.tag_name)
+                        FROM tag_assigned_to_transaction tat_f
+                        JOIN tag tg_f ON tg_f.tag_id = tat_f.tag_id
+                        WHERE tat_f.transaction_id = t.transaction_id
+                            AND tg_f.tag_name = ANY(${tagFilter ?? []}::text[])
+                    ) = ${tagCount}
+                )
+            GROUP BY t.transaction_id
+            ORDER BY t.date DESC
+            LIMIT ${HISTORY_ITEMS_PER_PAGE}
+            OFFSET ${offset}
+        )
         SELECT
-            t.transaction_id,
-            t.transaction_name,
-            t.date::text AS date,
-            (
-                COALESCE(SUM(COALESCE(tb.earned_amount, 0)), 0)
-                -
-                COALESCE(SUM(COALESCE(tb.spent_amount, 0)), 0)
-            )::text AS net_amount,
+            ft.transaction_id,
+            ft.transaction_name,
+            ft.date::text AS date,
+            ft.net_amount,
             COALESCE(
                 ARRAY_REMOVE(ARRAY_AGG(DISTINCT tg.tag_name), NULL),
                 ARRAY[]::text[]
             ) AS tags
-        FROM transaction t
-        JOIN transaction_breakdown tb ON tb.transaction_id = t.transaction_id
-        JOIN transaction_account ta ON ta.transaction_account_id = tb.transaction_account_id
-        LEFT JOIN tag_assigned_to_transaction tat ON tat.transaction_id = t.transaction_id
+        FROM filtered_tx ft
+        LEFT JOIN tag_assigned_to_transaction tat ON tat.transaction_id = ft.transaction_id
         LEFT JOIN tag tg ON tg.tag_id = tat.tag_id
-        WHERE ta.user_id = ${userId}
-            AND (${accountId ?? null}::int IS NULL OR tb.transaction_account_id = ${accountId ?? null})
-            AND (
-                ${searchPattern}::text IS NULL
-                OR t.transaction_name ILIKE ${searchPattern}
-                OR ta.account_name ILIKE ${searchPattern}
-                OR EXISTS (
-                    SELECT 1
-                    FROM tag_assigned_to_transaction tat2
-                    JOIN tag tg2 ON tg2.tag_id = tat2.tag_id
-                    WHERE tat2.transaction_id = t.transaction_id
-                        AND tg2.tag_name ILIKE ${searchPattern}
-                )
-            )
-            AND (
-                ${tagCount}::int = 0
-                OR (
-                    SELECT COUNT(DISTINCT tg_f.tag_name)
-                    FROM tag_assigned_to_transaction tat_f
-                    JOIN tag tg_f ON tg_f.tag_id = tat_f.tag_id
-                    WHERE tat_f.transaction_id = t.transaction_id
-                        AND tg_f.tag_name = ANY(${tagFilter ?? []}::text[])
-                ) = ${tagCount}
-            )
-        GROUP BY t.transaction_id
-        ORDER BY t.date DESC
-        LIMIT ${HISTORY_ITEMS_PER_PAGE}
-        OFFSET ${offset}
+        GROUP BY ft.transaction_id, ft.transaction_name, ft.date, ft.net_amount
+        ORDER BY ft.date DESC
     `;
 
     return rows;

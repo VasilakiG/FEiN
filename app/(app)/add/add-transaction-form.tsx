@@ -126,6 +126,7 @@ export default function AddTransactionForm({
         <form ref={formRef} action={formAction} className="space-y-5">
             {/* Hidden serialised fields */}
             <input type="hidden" name="tags" value={JSON.stringify(selectedTags)} />
+            <input type="hidden" name="pendingTag" value={tagInput.trim().toLowerCase()} />
             <input
                 type="hidden"
                 name="breakdowns"

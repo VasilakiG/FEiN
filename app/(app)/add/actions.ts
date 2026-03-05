@@ -111,6 +111,7 @@ export async function addTransaction(
     const date = String(formData.get('date') ?? '').trim();
     const amountRaw = String(formData.get('amount') ?? '').trim();
     const tagsJson = String(formData.get('tags') ?? '[]');
+    const pendingTag = String(formData.get('pendingTag') ?? '').trim().toLowerCase();
     const note = String(formData.get('note') ?? '').trim();
     const breakdownsJson = String(formData.get('breakdowns') ?? '[]');
 
@@ -135,6 +136,11 @@ export async function addTransaction(
         }
     } catch {
         return { error: 'Invalid tags data.' };
+    }
+
+    // Include any tag the user typed but didn't press Enter for
+    if (pendingTag && !pendingTag.startsWith('__note:') && !tags.includes(pendingTag)) {
+        tags.push(pendingTag);
     }
 
     let breakdowns: BreakdownInput[];
