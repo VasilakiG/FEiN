@@ -23,7 +23,7 @@ export default function TransactionList({
                 // postgres.js may return tags as a parsed array or as a PG
                 // array literal string like "{food,transport}". Normalise to
                 // a plain JS string[] so the pills always render.
-                const tags: string[] = Array.isArray(tx.tags)
+                const rawTags: string[] = Array.isArray(tx.tags)
                     ? tx.tags.filter(Boolean)
                     : typeof tx.tags === 'string' && (tx.tags as string).length > 2
                       ? (tx.tags as string)
@@ -32,6 +32,12 @@ export default function TransactionList({
                             .map((s) => s.trim())
                             .filter(Boolean)
                       : [];
+
+                // Separate note tags (__note:…) from regular tags
+                const tags = rawTags.filter((t) => !t.startsWith('__note:'));
+                const notes = rawTags
+                    .filter((t) => t.startsWith('__note:'))
+                    .map((t) => t.slice('__note:'.length));
 
                 return (
                     <div
@@ -52,6 +58,11 @@ export default function TransactionList({
                                             {tag}
                                         </span>
                                     ))}
+                                </div>
+                            )}
+                            {notes.length > 0 && (
+                                <div className="mt-1 text-xs text-white/40 italic truncate">
+                                    {notes[0]}
                                 </div>
                             )}
                             <div className="mt-1 text-xs text-white/40">

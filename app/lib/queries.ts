@@ -185,9 +185,20 @@ export async function getUserTagsForHistory(userId: number) {
         JOIN transaction_breakdown tb ON tb.transaction_id = t.transaction_id
         JOIN transaction_account ta ON ta.transaction_account_id = tb.transaction_account_id
         WHERE ta.user_id = ${userId}
+          AND tg.tag_name NOT LIKE '__note:%'
         ORDER BY tg.tag_name ASC
     `;
     return rows.map((r) => r.tag_name);
+}
+
+export async function getAllTags() {
+    const rows = await sql<{ tag_id: number; tag_name: string }[]>`
+        SELECT tag_id, tag_name
+        FROM tag
+        WHERE tag_name NOT LIKE '__note:%'
+        ORDER BY tag_name ASC
+    `;
+    return rows;
 }
 
 export const HISTORY_ITEMS_PER_PAGE = 10;

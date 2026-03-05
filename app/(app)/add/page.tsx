@@ -1,24 +1,23 @@
-import { poppins } from '@/app/ui/fonts';
+import { auth } from '@/auth';
+import { redirect } from 'next/navigation';
+import { getUserTransactionAccounts, getAllTags } from '@/app/lib/queries';
+import AddPageClient from './add-page-client';
 
-export default function Page() {
-    return (
-        <div className="w-full px-6 pt-10 pb-10">
-            <h1
-                className={`${poppins.className}
-          text-[40px]
-          leading-tight
-          tracking-tight
-          font-semibold
-          text-center
-          text-white
-        `}
-            >
-                Add Transaction
-            </h1>
+export default async function Page() {
+    const session = await auth();
+    if (!session?.user?.id) {
+        redirect('/login?callbackUrl=/add');
+    }
 
-            <div className="mt-10 rounded-3xl bg-white/5 border border-white/10 p-6 text-white/80">
-                Add form placeholder
-            </div>
-        </div>
-    );
+    const userId = Number(session.user.id);
+    if (!Number.isInteger(userId)) {
+        redirect('/login?callbackUrl=/add');
+    }
+
+    const [accounts, allTags] = await Promise.all([
+        getUserTransactionAccounts(userId),
+        getAllTags(),
+    ]);
+
+    return <AddPageClient accounts={accounts} allTags={allTags} />;
 }
