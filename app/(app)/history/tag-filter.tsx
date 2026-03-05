@@ -37,33 +37,34 @@ export default function TagFilter({ tags }: { tags: string[] }) {
     const isDragging = useRef(false);
     const startX = useRef(0);
     const scrollLeft = useRef(0);
-    const hasMoved = useRef(false);
+    const dragDistance = useRef(0);
+
+    // 8px threshold: anything less is a tap, more is a drag
+    const DRAG_THRESHOLD = 8;
 
     const onPointerDown = useCallback((e: React.PointerEvent) => {
         const el = scrollRef.current;
         if (!el) return;
         isDragging.current = true;
-        hasMoved.current = false;
+        dragDistance.current = 0;
         startX.current = e.clientX;
         scrollLeft.current = el.scrollLeft;
-        el.setPointerCapture(e.pointerId);
     }, []);
 
     const onPointerMove = useCallback((e: React.PointerEvent) => {
         if (!isDragging.current || !scrollRef.current) return;
         const dx = e.clientX - startX.current;
-        if (Math.abs(dx) > 3) hasMoved.current = true;
+        dragDistance.current = Math.abs(dx);
         scrollRef.current.scrollLeft = scrollLeft.current - dx;
     }, []);
 
-    const onPointerUp = useCallback((e: React.PointerEvent) => {
+    const onPointerUp = useCallback(() => {
         isDragging.current = false;
-        scrollRef.current?.releasePointerCapture(e.pointerId);
     }, []);
 
-    // Suppress click when user was dragging so tag doesn't toggle
+    // Suppress click only when the pointer moved beyond the threshold
     const onClickCapture = useCallback((e: React.MouseEvent) => {
-        if (hasMoved.current) {
+        if (dragDistance.current >= DRAG_THRESHOLD) {
             e.stopPropagation();
             e.preventDefault();
         }
