@@ -1,6 +1,7 @@
 'use client';
 
 import { useSearchParams, usePathname, useRouter } from 'next/navigation';
+import { useRef, useCallback } from 'react';
 
 export default function TagFilter({ tags }: { tags: string[] }) {
     const searchParams = useSearchParams();
@@ -31,10 +32,55 @@ export default function TagFilter({ tags }: { tags: string[] }) {
         replace(`${pathname}?${params.toString()}`);
     }
 
+    // ── Drag-to-scroll (mouse + touch) ──
+    const scrollRef = useRef<HTMLDivElement>(null);
+    const isDragging = useRef(false);
+    const startX = useRef(0);
+    const scrollLeft = useRef(0);
+    const hasMoved = useRef(false);
+
+    const onPointerDown = useCallback((e: React.PointerEvent) => {
+        const el = scrollRef.current;
+        if (!el) return;
+        isDragging.current = true;
+        hasMoved.current = false;
+        startX.current = e.clientX;
+        scrollLeft.current = el.scrollLeft;
+        el.setPointerCapture(e.pointerId);
+    }, []);
+
+    const onPointerMove = useCallback((e: React.PointerEvent) => {
+        if (!isDragging.current || !scrollRef.current) return;
+        const dx = e.clientX - startX.current;
+        if (Math.abs(dx) > 3) hasMoved.current = true;
+        scrollRef.current.scrollLeft = scrollLeft.current - dx;
+    }, []);
+
+    const onPointerUp = useCallback((e: React.PointerEvent) => {
+        isDragging.current = false;
+        scrollRef.current?.releasePointerCapture(e.pointerId);
+    }, []);
+
+    // Suppress click when user was dragging so tag doesn't toggle
+    const onClickCapture = useCallback((e: React.MouseEvent) => {
+        if (hasMoved.current) {
+            e.stopPropagation();
+            e.preventDefault();
+        }
+    }, []);
+
     if (tags.length === 0) return null;
 
     return (
-        <div className="overflow-x-auto no-scrollbar -mx-6 px-6">
+        <div
+            ref={scrollRef}
+            className="overflow-x-auto no-scrollbar -mx-6 px-6 cursor-grab active:cursor-grabbing select-none touch-pan-x"
+            onPointerDown={onPointerDown}
+            onPointerMove={onPointerMove}
+            onPointerUp={onPointerUp}
+            onPointerCancel={onPointerUp}
+            onClickCapture={onClickCapture}
+        >
             <div className="flex gap-2 w-max">
                 {tags.map((tag) => {
                     const isActive = selected.includes(tag);
