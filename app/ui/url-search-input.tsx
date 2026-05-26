@@ -40,7 +40,7 @@ export default function UrlSearchInput({
         const nextQuery = params.toString();
         window.dispatchEvent(new Event(NAVIGATION_START_EVENT));
         onNavigateStart?.();
-        replace(nextQuery ? `${pathname}?${nextQuery}` : pathname);
+        replace(nextQuery ? `${pathname}?${nextQuery}` : pathname, { scroll: false });
     }, debounceMs);
 
     return (

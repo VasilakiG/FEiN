@@ -36,7 +36,7 @@ export default function AnalyticsClient({
 
     function navigateWithIndicator(nextUrl: string) {
         window.dispatchEvent(new Event(NAVIGATION_START_EVENT));
-        replace(nextUrl);
+        replace(nextUrl, { scroll: false });
     }
 
     useEffect(() => {
