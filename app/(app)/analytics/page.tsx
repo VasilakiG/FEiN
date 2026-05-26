@@ -57,7 +57,7 @@ export default async function Page(props: {
                 Analytics
             </h1>
 
-            <AnalyticsClient data={data} />
+            <AnalyticsClient data={data} userId={userId} />
         </div>
     );
 }

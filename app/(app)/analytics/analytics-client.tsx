@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { CalendarDaysIcon, CheckIcon, XMarkIcon, ArrowsPointingOutIcon } from '@heroicons/react/24/outline';
 import { formatMKD } from '@/app/lib/utils';
@@ -9,8 +9,15 @@ import AccountFilterIcon from '@/app/ui/account-filter-icon';
 import type { AnalyticsData, AnalyticsTagTotal, AnalyticsTrendPoint } from '@/app/lib/queries';
 
 const COLORS = ['#60a5fa', '#34d399', '#fbbf24', '#f472b6', '#a78bfa', '#fb7185', '#22d3ee', '#f97316'];
+const ANALYTICS_KEYS = ['query', 'accountId', 'period', 'startDate', 'endDate', 'focusTags'] as const;
 
-export default function AnalyticsClient({ data }: { data: AnalyticsData }) {
+export default function AnalyticsClient({
+    data,
+    userId,
+}: {
+    data: AnalyticsData;
+    userId: number;
+}) {
     const searchParams = useSearchParams();
     const pathname = usePathname();
     const { replace } = useRouter();
@@ -23,6 +30,55 @@ export default function AnalyticsClient({ data }: { data: AnalyticsData }) {
     const startDate = searchParams.get('startDate') ?? '';
     const endDate = searchParams.get('endDate') ?? '';
     const selectedFocusTags = (searchParams.get('focusTags') ?? '').split(',').filter(Boolean);
+
+    const storageKey = `fein:analyticsState:v1:${userId}`;
+
+    useEffect(() => {
+        try {
+            const raw = localStorage.getItem(storageKey);
+            if (!raw) {
+                return;
+            }
+
+            const hasActiveParams = ANALYTICS_KEYS.some((key) => searchParams.get(key));
+            if (hasActiveParams) {
+                return;
+            }
+
+            const stored = JSON.parse(raw) as Record<string, string | undefined>;
+            const params = new URLSearchParams();
+            for (const key of ANALYTICS_KEYS) {
+                const value = stored[key];
+                if (value) {
+                    params.set(key, value);
+                }
+            }
+
+            const nextQuery = params.toString();
+            if (nextQuery) {
+                replace(`${pathname}?${nextQuery}`);
+            }
+        } catch {
+            // ignore storage errors
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [storageKey, userId]);
+
+    useEffect(() => {
+        try {
+            const snapshot: Record<string, string | undefined> = {};
+            for (const key of ANALYTICS_KEYS) {
+                const value = searchParams.get(key) ?? undefined;
+                if (value) {
+                    snapshot[key] = value;
+                }
+            }
+
+            localStorage.setItem(storageKey, JSON.stringify(snapshot));
+        } catch {
+            // ignore storage errors
+        }
+    }, [searchParams, storageKey]);
 
     const updateParams = (mutate: (params: URLSearchParams) => void) => {
         const params = new URLSearchParams(searchParams);
@@ -106,8 +162,8 @@ export default function AnalyticsClient({ data }: { data: AnalyticsData }) {
                                 type="button"
                                 onClick={() => setPeriod(value)}
                                 className={`rounded-xl px-4 py-2 text-sm font-medium transition whitespace-nowrap ${period === value
-                                        ? 'bg-sky-500 text-slate-950'
-                                        : 'text-white/65 hover:text-white hover:bg-white/10'
+                                    ? 'bg-sky-500 text-slate-950'
+                                    : 'text-white/65 hover:text-white hover:bg-white/10'
                                     }`}
                             >
                                 {label}
