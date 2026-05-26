@@ -31,6 +31,28 @@ export type TransactionAccountLite = {
     account_name: string | null;
 };
 
+export type AnalyticsPeriod = 'month' | 'year' | 'range';
+
+export type AnalyticsTagTotal = {
+    tag_name: string;
+    spent: string;
+};
+
+export type AnalyticsTrendPoint = {
+    bucket_key: string;
+    label: string;
+    spent: string;
+};
+
+export type AnalyticsData = {
+    accounts: TransactionAccountLite[];
+    tags: string[];
+    totalSpent: string;
+    tagTotals: AnalyticsTagTotal[];
+    focusTagTotals: AnalyticsTagTotal[];
+    trend: AnalyticsTrendPoint[];
+};
+
 export type HistoryTransaction = {
     transaction_id: number;
     transaction_name: string | null;
@@ -44,6 +66,242 @@ function startOfMonth(d: Date) {
 }
 function endOfMonth(d: Date) {
     return new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59, 999);
+}
+
+function startOfYear(d: Date) {
+    return new Date(d.getFullYear(), 0, 1);
+}
+
+function endOfYear(d: Date) {
+    return new Date(d.getFullYear(), 11, 31, 23, 59, 59, 999);
+}
+
+function parseDateInput(dateStr: string | undefined, fallback: Date) {
+    if (!dateStr) return fallback;
+    const parsed = new Date(`${dateStr}T00:00:00`);
+    return Number.isNaN(parsed.getTime()) ? fallback : parsed;
+}
+
+function bucketKeyForDate(date: Date, granularity: 'day' | 'month') {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    if (granularity === 'month') {
+        return `${year}-${month}`;
+    }
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
+function trendLabelForDate(date: Date, granularity: 'day' | 'month') {
+    if (granularity === 'month') {
+        return new Intl.DateTimeFormat('en-US', { month: 'short' }).format(date);
+    }
+
+    return String(date.getDate());
+}
+
+function buildTrendSeries(params: {
+    start: Date;
+    end: Date;
+    granularity: 'day' | 'month';
+    rows: { bucket_key: string; spent: string }[];
+}) {
+    const { start, end, granularity, rows } = params;
+    const lookup = new Map(rows.map((row) => [row.bucket_key, row.spent]));
+    const points: AnalyticsTrendPoint[] = [];
+
+    const cursor = new Date(start);
+    while (cursor <= end) {
+        const key = bucketKeyForDate(cursor, granularity);
+        points.push({
+            bucket_key: key,
+            label: trendLabelForDate(cursor, granularity),
+            spent: lookup.get(key) ?? '0.00',
+        });
+
+        if (granularity === 'month') {
+            cursor.setMonth(cursor.getMonth() + 1, 1);
+        } else {
+            cursor.setDate(cursor.getDate() + 1);
+        }
+    }
+
+    return points;
+}
+
+export async function getAnalyticsData(params: {
+    userId: number;
+    query?: string;
+    accountId?: number;
+    period?: AnalyticsPeriod;
+    startDate?: string;
+    endDate?: string;
+    focusTags?: string[];
+}): Promise<AnalyticsData> {
+    const now = new Date();
+    const period = params.period ?? 'month';
+    const defaultMonthStart = startOfMonth(now);
+    const defaultMonthEnd = endOfMonth(now);
+    const defaultYearStart = startOfYear(now);
+    const defaultYearEnd = endOfYear(now);
+
+    const start =
+        period === 'year'
+            ? defaultYearStart
+            : period === 'range'
+                ? parseDateInput(params.startDate, defaultMonthStart)
+                : defaultMonthStart;
+    const end =
+        period === 'year'
+            ? defaultYearEnd
+            : period === 'range'
+                ? parseDateInput(params.endDate, defaultMonthEnd)
+                : defaultMonthEnd;
+
+    const startBoundary = new Date(start);
+    startBoundary.setHours(0, 0, 0, 0);
+    const endBoundary = new Date(end);
+    endBoundary.setHours(23, 59, 59, 999);
+
+    const granularity: 'day' | 'month' = period === 'year' ? 'month' : 'day';
+    const searchPattern = params.query ? `%${params.query}%` : null;
+    const accountId = params.accountId ?? null;
+    const focusTags = params.focusTags && params.focusTags.length > 0 ? params.focusTags : null;
+    const focusTagCount = focusTags ? focusTags.length : 0;
+    const dateFormat = granularity === 'month' ? 'YYYY-MM' : 'YYYY-MM-DD';
+
+    const [accounts, tags, totalSpentRow, tagTotals, focusTagTotals, trendRows] = await Promise.all([
+        getUserTransactionAccounts(params.userId),
+        getUserTagsForHistory(params.userId),
+        sql<{ spent: string | null }[]>`
+            SELECT COALESCE(SUM(tb.spent_amount), 0)::numeric(12,2) AS spent
+            FROM transaction_breakdown tb
+            JOIN transaction_account ta ON ta.transaction_account_id = tb.transaction_account_id
+            JOIN transaction t ON t.transaction_id = tb.transaction_id
+            WHERE ta.user_id = ${params.userId}
+                AND (${accountId}::int IS NULL OR tb.transaction_account_id = ${accountId})
+                AND t.date >= ${startBoundary.toISOString()}
+                AND t.date <= ${endBoundary.toISOString()}
+                AND (
+                    ${searchPattern}::text IS NULL
+                    OR t.transaction_name ILIKE ${searchPattern}
+                    OR ta.account_name ILIKE ${searchPattern}
+                    OR EXISTS (
+                        SELECT 1
+                        FROM tag_assigned_to_transaction tat2
+                        JOIN tag tg2 ON tg2.tag_id = tat2.tag_id
+                        WHERE tat2.transaction_id = t.transaction_id
+                            AND tg2.tag_name ILIKE ${searchPattern}
+                    )
+                )
+        `,
+        sql<AnalyticsTagTotal[]>`
+            SELECT
+                tg.tag_name,
+                COALESCE(SUM(COALESCE(tb.spent_amount, 0)), 0)::numeric(12,2)::text AS spent
+            FROM transaction t
+            JOIN transaction_breakdown tb ON tb.transaction_id = t.transaction_id
+            JOIN transaction_account ta ON ta.transaction_account_id = tb.transaction_account_id
+            JOIN tag_assigned_to_transaction tat ON tat.transaction_id = t.transaction_id
+            JOIN tag tg ON tg.tag_id = tat.tag_id
+            WHERE ta.user_id = ${params.userId}
+                AND (${accountId}::int IS NULL OR tb.transaction_account_id = ${accountId})
+                AND t.date >= ${startBoundary.toISOString()}
+                AND t.date <= ${endBoundary.toISOString()}
+                AND tg.tag_name NOT LIKE '__note:%'
+                AND (
+                    ${searchPattern}::text IS NULL
+                    OR t.transaction_name ILIKE ${searchPattern}
+                    OR ta.account_name ILIKE ${searchPattern}
+                    OR tg.tag_name ILIKE ${searchPattern}
+                    OR EXISTS (
+                        SELECT 1
+                        FROM tag_assigned_to_transaction tat2
+                        JOIN tag tg2 ON tg2.tag_id = tat2.tag_id
+                        WHERE tat2.transaction_id = t.transaction_id
+                            AND tg2.tag_name ILIKE ${searchPattern}
+                    )
+                )
+            GROUP BY tg.tag_name
+            ORDER BY COALESCE(SUM(COALESCE(tb.spent_amount, 0)), 0) DESC, tg.tag_name ASC
+            LIMIT 12
+        `,
+        focusTagCount > 0
+            ? sql<AnalyticsTagTotal[]>`
+                SELECT
+                    tg.tag_name,
+                    COALESCE(SUM(COALESCE(tb.spent_amount, 0)), 0)::numeric(12,2)::text AS spent
+                FROM transaction t
+                JOIN transaction_breakdown tb ON tb.transaction_id = t.transaction_id
+                JOIN transaction_account ta ON ta.transaction_account_id = tb.transaction_account_id
+                JOIN tag_assigned_to_transaction tat ON tat.transaction_id = t.transaction_id
+                JOIN tag tg ON tg.tag_id = tat.tag_id
+                WHERE ta.user_id = ${params.userId}
+                    AND (${accountId}::int IS NULL OR tb.transaction_account_id = ${accountId})
+                    AND t.date >= ${startBoundary.toISOString()}
+                    AND t.date <= ${endBoundary.toISOString()}
+                    AND tg.tag_name NOT LIKE '__note:%'
+                    AND tg.tag_name = ANY(${focusTags ?? []}::text[])
+                    AND (
+                        ${searchPattern}::text IS NULL
+                        OR t.transaction_name ILIKE ${searchPattern}
+                        OR ta.account_name ILIKE ${searchPattern}
+                        OR tg.tag_name ILIKE ${searchPattern}
+                        OR EXISTS (
+                            SELECT 1
+                            FROM tag_assigned_to_transaction tat2
+                            JOIN tag tg2 ON tg2.tag_id = tat2.tag_id
+                            WHERE tat2.transaction_id = t.transaction_id
+                                AND tg2.tag_name ILIKE ${searchPattern}
+                        )
+                    )
+                GROUP BY tg.tag_name
+                ORDER BY COALESCE(SUM(COALESCE(tb.spent_amount, 0)), 0) DESC, tg.tag_name ASC
+            `
+            : Promise.resolve([] as AnalyticsTagTotal[]),
+        sql<{ bucket_key: string; spent: string }[]>`
+            SELECT
+                TO_CHAR(DATE_TRUNC(${granularity}, t.date), ${dateFormat}) AS bucket_key,
+                COALESCE(SUM(COALESCE(tb.spent_amount, 0)), 0)::numeric(12,2)::text AS spent
+            FROM transaction t
+            JOIN transaction_breakdown tb ON tb.transaction_id = t.transaction_id
+            JOIN transaction_account ta ON ta.transaction_account_id = tb.transaction_account_id
+            WHERE ta.user_id = ${params.userId}
+                AND (${accountId}::int IS NULL OR tb.transaction_account_id = ${accountId})
+                AND t.date >= ${startBoundary.toISOString()}
+                AND t.date <= ${endBoundary.toISOString()}
+                AND (
+                    ${searchPattern}::text IS NULL
+                    OR t.transaction_name ILIKE ${searchPattern}
+                    OR ta.account_name ILIKE ${searchPattern}
+                    OR EXISTS (
+                        SELECT 1
+                        FROM tag_assigned_to_transaction tat2
+                        JOIN tag tg2 ON tg2.tag_id = tat2.tag_id
+                        WHERE tat2.transaction_id = t.transaction_id
+                            AND tg2.tag_name ILIKE ${searchPattern}
+                    )
+                )
+            GROUP BY 1
+            ORDER BY 1 ASC
+        `,
+    ]);
+
+    const trend = buildTrendSeries({
+        start: startBoundary,
+        end: endBoundary,
+        granularity,
+        rows: trendRows,
+    });
+
+    return {
+        accounts,
+        tags,
+        totalSpent: totalSpentRow[0]?.spent ?? '0.00',
+        tagTotals,
+        focusTagTotals,
+        trend,
+    };
 }
 
 export async function getDashboardData(userId: number): Promise<DashboardData> {
