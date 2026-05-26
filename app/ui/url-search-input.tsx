@@ -5,16 +5,20 @@ import { useSearchParams, usePathname, useRouter } from 'next/navigation';
 import { useDebouncedCallback } from 'use-debounce';
 import { poppins } from '@/app/ui/fonts';
 
+const NAVIGATION_START_EVENT = 'fein:navigation-start';
+
 export default function UrlSearchInput({
     placeholder,
     queryParam = 'query',
     debounceMs = 300,
     resetPageOnChange = false,
+    onNavigateStart,
 }: {
     placeholder: string;
     queryParam?: string;
     debounceMs?: number;
     resetPageOnChange?: boolean;
+    onNavigateStart?: () => void;
 }) {
     const searchParams = useSearchParams();
     const pathname = usePathname();
@@ -34,6 +38,8 @@ export default function UrlSearchInput({
         }
 
         const nextQuery = params.toString();
+        window.dispatchEvent(new Event(NAVIGATION_START_EVENT));
+        onNavigateStart?.();
         replace(nextQuery ? `${pathname}?${nextQuery}` : pathname);
     }, debounceMs);
 

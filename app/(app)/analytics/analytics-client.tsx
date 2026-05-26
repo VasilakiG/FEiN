@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { CalendarDaysIcon, CheckIcon, XMarkIcon, ArrowsPointingOutIcon } from '@heroicons/react/24/outline';
+import { CalendarDaysIcon, CheckIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import { formatMKD } from '@/app/lib/utils';
 import UrlSearchInput from '@/app/ui/url-search-input';
 import AccountFilterIcon from '@/app/ui/account-filter-icon';
@@ -10,6 +10,7 @@ import type { AnalyticsData, AnalyticsTagTotal, AnalyticsTrendPoint } from '@/ap
 
 const COLORS = ['#60a5fa', '#34d399', '#fbbf24', '#f472b6', '#a78bfa', '#fb7185', '#22d3ee', '#f97316'];
 const ANALYTICS_KEYS = ['query', 'accountId', 'period', 'startDate', 'endDate', 'focusTags'] as const;
+const NAVIGATION_START_EVENT = 'fein:navigation-start';
 
 export default function AnalyticsClient({
     data,
@@ -32,6 +33,11 @@ export default function AnalyticsClient({
     const selectedFocusTags = (searchParams.get('focusTags') ?? '').split(',').filter(Boolean);
 
     const storageKey = `fein:analyticsState:v1:${userId}`;
+
+    function navigateWithIndicator(nextUrl: string) {
+        window.dispatchEvent(new Event(NAVIGATION_START_EVENT));
+        replace(nextUrl);
+    }
 
     useEffect(() => {
         try {
@@ -56,7 +62,7 @@ export default function AnalyticsClient({
 
             const nextQuery = params.toString();
             if (nextQuery) {
-                replace(`${pathname}?${nextQuery}`);
+                navigateWithIndicator(`${pathname}?${nextQuery}`);
             }
         } catch {
             // ignore storage errors
@@ -84,7 +90,7 @@ export default function AnalyticsClient({
         const params = new URLSearchParams(searchParams);
         mutate(params);
         const nextQuery = params.toString();
-        replace(nextQuery ? `${pathname}?${nextQuery}` : pathname);
+        navigateWithIndicator(nextQuery ? `${pathname}?${nextQuery}` : pathname);
     };
 
     const setPeriod = (value: 'month' | 'year' | 'range') => {
@@ -130,7 +136,7 @@ export default function AnalyticsClient({
     };
 
     const clearAllFilters = () => {
-        replace(pathname);
+        navigateWithIndicator(pathname);
     };
 
     const mainTagSlices = useMemo(() => toSlices(data.tagTotals), [data.tagTotals]);
@@ -151,7 +157,9 @@ export default function AnalyticsClient({
                             debounceMs={250}
                         />
                     </div>
-                    <AccountFilterIcon accounts={data.accounts} />
+                    <AccountFilterIcon
+                        accounts={data.accounts}
+                    />
                 </div>
 
                 <div className="space-y-2">

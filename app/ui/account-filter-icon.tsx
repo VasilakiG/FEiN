@@ -5,14 +5,18 @@ import { useSearchParams, usePathname, useRouter } from 'next/navigation';
 import { WalletIcon, CheckIcon } from '@heroicons/react/24/outline';
 import type { TransactionAccountLite } from '@/app/lib/queries';
 
+const NAVIGATION_START_EVENT = 'fein:navigation-start';
+
 export default function AccountFilterIcon({
     accounts,
     accountParam = 'accountId',
     resetPageOnChange = false,
+    onNavigateStart,
 }: {
     accounts: TransactionAccountLite[];
     accountParam?: string;
     resetPageOnChange?: boolean;
+    onNavigateStart?: () => void;
 }) {
     const searchParams = useSearchParams();
     const pathname = usePathname();
@@ -49,6 +53,8 @@ export default function AccountFilterIcon({
         }
 
         const nextQuery = params.toString();
+        window.dispatchEvent(new Event(NAVIGATION_START_EVENT));
+        onNavigateStart?.();
         replace(nextQuery ? `${pathname}?${nextQuery}` : pathname);
         setOpen(false);
     }

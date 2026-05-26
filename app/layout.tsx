@@ -1,6 +1,7 @@
 import '@/app/ui/global.css';
 import { poppins } from '@/app/ui/fonts';
 import { Metadata } from 'next';
+import GlobalNavigationIndicator from '@/app/ui/global-navigation-indicator';
 
 export const metadata: Metadata = {
   title: {
@@ -41,6 +42,8 @@ export default function RootLayout({
             {children}
           </div>
         </div>
+
+        <GlobalNavigationIndicator />
       </body>
     </html>
   );
