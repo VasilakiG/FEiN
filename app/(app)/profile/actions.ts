@@ -30,21 +30,31 @@ export async function updateProfile(
         return 'Please enter a valid email.';
     }
 
-    // Email already exists check
-    const existing = await sql`
-        SELECT user_id FROM "user"
-        WHERE email = ${email} AND user_id != ${userId}
-    `;
-    if (existing.length > 0) {
-        return 'Email already exists.';
-    }
+    try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await sql.begin(async (tx: any) => {
+            // Email already exists check
+            const existing = await tx`
+                SELECT user_id FROM "user"
+                WHERE email = ${email} AND user_id != ${userId}
+            `;
+            if (existing.length > 0) {
+                throw new Error('Email already exists.');
+            }
 
-    await sql`
-        UPDATE "user"
-        SET user_name = ${name},
-            email = ${email}
-        WHERE user_id = ${userId}
-    `;
+            await tx`
+                UPDATE "user"
+                SET user_name = ${name},
+                    email = ${email}
+                WHERE user_id = ${userId}
+            `;
+        });
+    } catch (e: any) {
+        if (e instanceof Error && e.message === 'Email already exists.') {
+            return e.message;
+        }
+        throw e;
+    }
 
     redirect('/profile');
 }

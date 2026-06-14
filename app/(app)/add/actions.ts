@@ -75,17 +75,23 @@ export async function addTag(
         return { error: 'Reserved tag prefix.' };
     }
 
-    // Check duplicate (case-insensitive)
-    const existing = await sql`
-        SELECT tag_id FROM tag WHERE LOWER(tag_name) = ${name}
-    `;
-    if (existing.length > 0) {
-        return { error: `Tag "${name}" already exists.` };
-    }
-
     try {
-        await sql`INSERT INTO tag (tag_name) VALUES (${name})`;
-    } catch {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await sql.begin(async (tx: any) => {
+            // Check duplicate (case-insensitive)
+            const existing = await tx`
+                SELECT tag_id FROM tag WHERE LOWER(tag_name) = ${name}
+            `;
+            if (existing.length > 0) {
+                throw new Error(`Tag "${name}" already exists.`);
+            }
+
+            await tx`INSERT INTO tag (tag_name) VALUES (${name})`;
+        });
+    } catch (e: any) {
+        if (e instanceof Error && e.message.includes('already exists')) {
+            return { error: e.message };
+        }
         return { error: 'Failed to create tag.' };
     }
 

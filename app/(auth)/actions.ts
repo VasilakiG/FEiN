@@ -61,21 +61,26 @@ export async function register(
     const safeRedirect =
         redirectTo?.startsWith('/') ? redirectTo : '/dashboard';
 
-    const existing =
-        await sql`SELECT user_id FROM "user" WHERE email=${email}`;
-
-    if (existing.length > 0) {
-        return 'User already exists.';
-    }
-
     const hashed = await bcrypt.hash(password, 10);
 
     try {
-        await sql`
-            INSERT INTO "user" (user_name, email, password)
-            VALUES (${user_name}, ${email}, ${hashed})
-        `;
-    } catch {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await sql.begin(async (tx: any) => {
+            const existing = await tx`SELECT user_id FROM "user" WHERE email=${email}`;
+
+            if (existing.length > 0) {
+                throw new Error('User already exists.');
+            }
+
+            await tx`
+                INSERT INTO "user" (user_name, email, password)
+                VALUES (${user_name}, ${email}, ${hashed})
+            `;
+        });
+    } catch (e: any) {
+        if (e instanceof Error && e.message === 'User already exists.') {
+            return e.message;
+        }
         return 'Failed to create user.';
     }
 
