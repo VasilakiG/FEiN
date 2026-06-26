@@ -22,8 +22,6 @@ export default function AnalyticsClient({
     const searchParams = useSearchParams();
     const pathname = usePathname();
     const { replace } = useRouter();
-    const startInputRef = useRef<HTMLInputElement>(null);
-    const endInputRef = useRef<HTMLInputElement>(null);
     const [trendZoomOpen, setTrendZoomOpen] = useState(false);
 
     const query = searchParams.get('query') ?? '';
@@ -184,15 +182,11 @@ export default function AnalyticsClient({
                             <DatePickerButton
                                 label="Start Date"
                                 value={startDate}
-                                inputRef={startInputRef}
-                                onClick={() => startInputRef.current?.showPicker?.() ?? startInputRef.current?.click()}
                                 onChange={(value) => setRangeDate('startDate', value)}
                             />
                             <DatePickerButton
                                 label="End Date"
                                 value={endDate}
-                                inputRef={endInputRef}
-                                onClick={() => endInputRef.current?.showPicker?.() ?? endInputRef.current?.click()}
                                 onChange={(value) => setRangeDate('endDate', value)}
                             />
                         </div>
@@ -278,23 +272,47 @@ export default function AnalyticsClient({
 function DatePickerButton({
     label,
     value,
-    inputRef,
     onChange,
-    onClick,
 }: {
     label: string;
     value: string;
-    inputRef: React.RefObject<HTMLInputElement | null>;
     onChange: (value: string) => void;
-    onClick: () => void;
 }) {
+    const inputRef = useRef<HTMLInputElement>(null);
     const displayValue = value ? formatDateForButton(value) : 'Pick date';
+    const useDirectTapInput = useMemo(() => {
+        if (typeof navigator === 'undefined' || typeof window === 'undefined') {
+            return false;
+        }
+
+        const ua = navigator.userAgent || '';
+        const isIOS =
+            /iPad|iPhone|iPod/.test(ua)
+            || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        const isTouch = window.matchMedia('(pointer: coarse)').matches || navigator.maxTouchPoints > 0;
+
+        // iOS/PWA is more reliable with a direct tap on a native date input.
+        return isIOS && isTouch;
+    }, []);
+
+    function openPicker() {
+        const input = inputRef.current;
+        if (!input) return;
+
+        if (typeof input.showPicker === 'function') {
+            input.showPicker();
+            return;
+        }
+
+        input.focus();
+        input.click();
+    }
 
     return (
         <div className="relative">
             <button
                 type="button"
-                onClick={onClick}
+                onClick={openPicker}
                 aria-label={label}
                 className="flex w-full items-center justify-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/80 hover:bg-white/10 transition"
             >
@@ -304,7 +322,10 @@ function DatePickerButton({
             <input
                 ref={inputRef}
                 type="date"
-                className="pointer-events-none absolute h-0 w-0 opacity-0"
+                aria-label={label}
+                className={useDirectTapInput
+                    ? 'absolute inset-0 h-full w-full cursor-pointer opacity-0'
+                    : 'pointer-events-none absolute h-0 w-0 opacity-0'}
                 value={value}
                 onChange={(e) => onChange(e.target.value)}
             />
