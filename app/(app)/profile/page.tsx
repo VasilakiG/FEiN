@@ -66,25 +66,6 @@ export default async function ProfilePage() {
                     <ChevronRightIcon className="h-5 w-5 text-white/35" />
                 </Link>
 
-                <Link
-                    href="/profile/settings"
-                    className="
-                        flex items-center justify-between
-                        h-14
-                        rounded-2xl
-                        border border-white/35
-                        bg-white/5
-                        px-5
-                        text-white/55
-                        backdrop-blur-md
-                        transition
-                        hover:bg-white/10
-                    "
-                >
-                    <span className={`${poppins.className} text-base`}>Settings</span>
-                    <ChevronRightIcon className="h-5 w-5 text-white/35" />
-                </Link>
-
                 <form
                     action={async () => {
                         'use server';
