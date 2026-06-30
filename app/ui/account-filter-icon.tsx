@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useLayoutEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useSearchParams, usePathname, useRouter } from 'next/navigation';
 import { WalletIcon, CheckIcon } from '@heroicons/react/24/outline';
 import type { TransactionAccountLite } from '@/app/lib/queries';
@@ -22,7 +23,9 @@ export default function AccountFilterIcon({
     const pathname = usePathname();
     const { replace } = useRouter();
     const [open, setOpen] = useState(false);
+    const [menuStyle, setMenuStyle] = useState<React.CSSProperties>({});
     const ref = useRef<HTMLDivElement>(null);
+    const buttonRef = useRef<HTMLButtonElement>(null);
 
     const currentId = searchParams.get(accountParam) ?? '';
     const hasFilter = currentId !== '';
@@ -37,6 +40,26 @@ export default function AccountFilterIcon({
             document.addEventListener('mousedown', onClickOutside);
             return () => document.removeEventListener('mousedown', onClickOutside);
         }
+    }, [open]);
+
+    useLayoutEffect(() => {
+        if (!open || !buttonRef.current) {
+            return;
+        }
+
+        const rect = buttonRef.current.getBoundingClientRect();
+        const dropdownWidth = 224;
+        const gap = 8;
+        const left = Math.max(12, Math.min(rect.right - dropdownWidth, window.innerWidth - dropdownWidth - 12));
+        const top = rect.bottom + gap;
+
+        setMenuStyle({
+            position: 'fixed',
+            left,
+            top,
+            width: dropdownWidth,
+            zIndex: 9999,
+        });
     }, [open]);
 
     function select(value: string) {
@@ -60,8 +83,9 @@ export default function AccountFilterIcon({
     }
 
     return (
-        <div ref={ref} className="relative">
+        <div ref={ref} className="relative z-50">
             <button
+                ref={buttonRef}
                 type="button"
                 onClick={() => setOpen((v) => !v)}
                 className={`
@@ -77,24 +101,27 @@ export default function AccountFilterIcon({
             </button>
 
             {open && (
-                <div className="absolute right-0 top-14 z-50 w-56 rounded-xl bg-gray-900/95 border border-white/15 backdrop-blur-lg shadow-2xl py-1 overflow-hidden">
-                    <DropdownItem
-                        label="All Accounts"
-                        isSelected={currentId === ''}
-                        onClick={() => select('')}
-                    />
-                    {accounts.map((acc) => {
-                        const id = String(acc.transaction_account_id);
-                        return (
-                            <DropdownItem
-                                key={id}
-                                label={acc.account_name ?? `Account #${acc.transaction_account_id}`}
-                                isSelected={currentId === id}
-                                onClick={() => select(id)}
-                            />
-                        );
-                    })}
-                </div>
+                createPortal(
+                    <div style={menuStyle} className="rounded-xl bg-gray-900/95 border border-white/15 backdrop-blur-lg shadow-2xl py-1 overflow-hidden">
+                        <DropdownItem
+                            label="All Accounts"
+                            isSelected={currentId === ''}
+                            onClick={() => select('')}
+                        />
+                        {accounts.map((acc) => {
+                            const id = String(acc.transaction_account_id);
+                            return (
+                                <DropdownItem
+                                    key={id}
+                                    label={acc.account_name ?? `Account #${acc.transaction_account_id}`}
+                                    isSelected={currentId === id}
+                                    onClick={() => select(id)}
+                                />
+                            );
+                        })}
+                    </div>,
+                    document.body,
+                )
             )}
         </div>
     );
