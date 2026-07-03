@@ -26,13 +26,15 @@ export default function AccountFilterIcon({
     const [menuStyle, setMenuStyle] = useState<React.CSSProperties>({});
     const ref = useRef<HTMLDivElement>(null);
     const buttonRef = useRef<HTMLButtonElement>(null);
+    const menuRef = useRef<HTMLDivElement>(null);
 
     const currentId = searchParams.get(accountParam) ?? '';
     const hasFilter = currentId !== '';
 
     useEffect(() => {
         function onClickOutside(e: MouseEvent) {
-            if (ref.current && !ref.current.contains(e.target as Node)) {
+            const target = e.target as Node;
+            if (ref.current && !ref.current.contains(target) && !menuRef.current?.contains(target)) {
                 setOpen(false);
             }
         }
@@ -102,7 +104,11 @@ export default function AccountFilterIcon({
 
             {open && (
                 createPortal(
-                    <div style={menuStyle} className="rounded-xl bg-gray-900/95 border border-white/15 backdrop-blur-lg shadow-2xl py-1 overflow-hidden">
+                    <div
+                        ref={menuRef}
+                        style={menuStyle}
+                        className="rounded-xl bg-gray-900/95 border border-white/15 backdrop-blur-lg shadow-2xl py-1 overflow-hidden"
+                    >
                         <DropdownItem
                             label="All Accounts"
                             isSelected={currentId === ''}
