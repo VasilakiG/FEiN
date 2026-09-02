@@ -8,6 +8,7 @@ declare global {
 export const sql =
     global.__fein_sql ??
     postgres(process.env.POSTGRES_URL!, {
+        prepare: false,
         ssl: 'require',
     });
 
