@@ -24,25 +24,59 @@ type Breakdown = {
     amount: string;
 };
 
+function normalizeTag(tag?: string | null) {
+    return String(tag ?? '').trim().toLowerCase();
+}
+
+type TransactionFormAction =
+    | typeof addTransaction
+    | ((prev: ActionState, formData: FormData) => Promise<ActionState>);
+
+type Props = {
+    accounts: AccountOption[];
+    allTags: TagOption[];
+    action?: TransactionFormAction;
+    transactionId?: number;
+    initialName?: string;
+    initialDate?: string;
+    initialAmount?: string;
+    initialBreakdowns?: Breakdown[];
+    initialSelectedTags?: string[];
+    initialTagInput?: string;
+    initialNote?: string;
+    submitLabel?: string;
+    pendingLabel?: string;
+    resetOnSuccess?: boolean;
+};
+
 let nextId = 1;
 
 export default function AddTransactionForm({
     accounts,
     allTags,
-}: {
-    accounts: AccountOption[];
-    allTags: TagOption[];
-}) {
-    const [state, formAction, isPending] = useActionState<ActionState, FormData>(
-        addTransaction,
-        undefined,
-    );
+    action = addTransaction,
+    transactionId,
+    initialName = '',
+    initialDate = new Date().toISOString().slice(0, 10),
+    initialAmount = '',
+    initialBreakdowns = [],
+    initialSelectedTags = [],
+    initialTagInput = '',
+    initialNote = '',
+    submitLabel = 'Create Transaction',
+    pendingLabel = 'Creating…',
+    resetOnSuccess = true,
+}: Props) {
+    const [state, formAction, isPending] = useActionState(action, undefined);
     const formRef = useRef<HTMLFormElement>(null);
 
     // ── Breakdowns ──
-    const [breakdowns, setBreakdowns] = useState<Breakdown[]>([]);
+    const [breakdowns, setBreakdowns] = useState<Breakdown[]>(() => initialBreakdowns);
     const [showFieldMenu, setShowFieldMenu] = useState(false);
     const fieldMenuRef = useRef<HTMLDivElement>(null);
+    const [name, setName] = useState(initialName);
+    const [date, setDate] = useState(initialDate);
+    const [amount, setAmount] = useState(initialAmount);
 
     function addBreakdown(type: 'from' | 'to') {
         const defaultAccount = accounts[0]?.transaction_account_id ?? 0;
@@ -64,19 +98,23 @@ export default function AddTransactionForm({
     }
 
     // ── Tags ──
-    const [selectedTags, setSelectedTags] = useState<string[]>([]);
-    const [tagInput, setTagInput] = useState('');
+    const [selectedTags, setSelectedTags] = useState<string[]>(() =>
+        Array.from(new Set(initialSelectedTags.map(normalizeTag))),
+    );
+    const [tagInput, setTagInput] = useState(normalizeTag(initialTagInput));
+    const [note, setNote] = useState(initialNote);
 
     function toggleTag(name: string) {
+        const normalized = normalizeTag(name);
         setSelectedTags((prev) =>
-            prev.includes(name)
-                ? prev.filter((t) => t !== name)
-                : [...prev, name],
+            prev.includes(normalized)
+                ? prev.filter((t) => t !== normalized)
+                : [...prev, normalized],
         );
     }
 
     function addCustomTag() {
-        const trimmed = tagInput.trim().toLowerCase();
+        const trimmed = normalizeTag(tagInput);
         if (trimmed && !selectedTags.includes(trimmed)) {
             setSelectedTags((prev) => [...prev, trimmed]);
         }
@@ -85,13 +123,17 @@ export default function AddTransactionForm({
 
     // ── Reset on success ──
     useEffect(() => {
-        if (state?.success) {
+        if (state?.success && resetOnSuccess) {
             formRef.current?.reset();
             setBreakdowns([]);
             setSelectedTags([]);
             setTagInput('');
+            setNote('');
+            setName('');
+            setDate(new Date().toISOString().slice(0, 10));
+            setAmount('');
         }
-    }, [state]);
+    }, [state, resetOnSuccess]);
 
     // ── Close field menu on outside click ──
     useEffect(() => {
@@ -125,8 +167,12 @@ export default function AddTransactionForm({
     return (
         <form ref={formRef} action={formAction} className="space-y-5">
             {/* Hidden serialised fields */}
+            {transactionId !== undefined && (
+                <input type="hidden" name="transactionId" value={transactionId} />
+            )}
             <input type="hidden" name="tags" value={JSON.stringify(selectedTags)} />
-            <input type="hidden" name="pendingTag" value={tagInput.trim().toLowerCase()} />
+            <input type="hidden" name="pendingTag" value={normalizeTag(tagInput)} />
+            <input type="hidden" name="note" value={note} />
             <input
                 type="hidden"
                 name="breakdowns"
@@ -142,6 +188,8 @@ export default function AddTransactionForm({
                     name="name"
                     type="text"
                     required
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
                     placeholder="e.g. Grocery shopping"
                     className={inputClasses}
                 />
@@ -157,7 +205,8 @@ export default function AddTransactionForm({
                         name="date"
                         type="date"
                         required
-                        defaultValue={new Date().toISOString().slice(0, 10)}
+                        value={date}
+                        onChange={(e) => setDate(e.target.value)}
                         className={`${inputClasses} pl-10 [color-scheme:dark] [&::-webkit-date-and-time-value]:text-left`}
                     />
                     <CalendarIcon className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-white/40" />
@@ -174,6 +223,8 @@ export default function AddTransactionForm({
                     type="number"
                     step="any"
                     required
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
                     placeholder="0"
                     className={inputClasses}
                 />
@@ -331,18 +382,20 @@ export default function AddTransactionForm({
                 {/* Existing tags as toggleable pills */}
                 <div className="flex flex-wrap gap-1.5 mb-2">
                     {allTags.map((t) => {
-                        const active = selectedTags.includes(t.tag_name);
+                        const tagName = normalizeTag(t.tag_name);
+                        const active = selectedTags.includes(tagName);
                         return (
                             <button
                                 key={t.tag_id}
                                 type="button"
-                                onClick={() => toggleTag(t.tag_name)}
+                                onClick={() => toggleTag(tagName)}
                                 className={`
-                                    px-2.5 py-1 rounded-full text-xs font-medium
-                                    transition-colors border
+                                    inline-flex items-center justify-center whitespace-nowrap
+                                    px-3 py-1.5 rounded-full text-xs font-medium
+                                    transition-colors border min-w-fit
                                     ${active
-                                        ? 'bg-blue-500/30 border-blue-400/50 text-blue-300'
-                                        : 'bg-white/5 border-white/10 text-white/50 hover:bg-white/10'
+                                        ? 'bg-blue-500/30 border-blue-400/50 text-blue-200 ring-1 ring-blue-300/30'
+                                        : 'bg-white/5 border-white/10 text-white/75 hover:bg-white/10'
                                     }
                                 `}
                             >
@@ -361,8 +414,8 @@ export default function AddTransactionForm({
                             className="
                                 inline-flex items-center gap-1
                                 mr-1.5 mb-1.5
-                                px-2.5 py-1 rounded-full text-xs font-medium
-                                bg-blue-500/30 border border-blue-400/50 text-blue-300
+                                px-3 py-1.5 rounded-full text-xs font-medium
+                                bg-blue-500/30 border border-blue-400/50 text-blue-200
                             "
                         >
                             {custom}
@@ -406,6 +459,8 @@ export default function AddTransactionForm({
                 <textarea
                     name="note"
                     rows={2}
+                    value={note}
+                    onChange={(e) => setNote(e.target.value)}
                     placeholder="Any extra details…"
                     className={`${poppins.className}
                         w-full rounded-xl
@@ -437,7 +492,7 @@ export default function AddTransactionForm({
                 aria-disabled={isPending}
                 className="w-full justify-center h-12 rounded-xl text-sm font-semibold"
             >
-                {isPending ? 'Creating…' : 'Create Transaction'}
+                {isPending ? pendingLabel : submitLabel}
             </Button>
         </form>
     );

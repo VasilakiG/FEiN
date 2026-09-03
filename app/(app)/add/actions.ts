@@ -211,7 +211,7 @@ export async function addTransaction(
             `;
             const transactionId: number = txRow.transaction_id;
 
-            // 2. Insert breakdowns & update account balances
+            // 2. Insert breakdowns
             for (const breakdown of breakdowns) {
                 const spent = breakdown.type === 'from' ? breakdown.amount : 0;
                 const earned = breakdown.type === 'to' ? breakdown.amount : 0;
@@ -220,13 +220,6 @@ export async function addTransaction(
                     INSERT INTO transaction_breakdown
                         (transaction_id, transaction_account_id, spent_amount, earned_amount)
                     VALUES (${transactionId}, ${breakdown.accountId}, ${spent}, ${earned})
-                `;
-
-                // Update balance: earned increases, spent decreases
-                await tx`
-                    UPDATE transaction_account
-                    SET balance = balance + ${earned} - ${spent}
-                    WHERE transaction_account_id = ${breakdown.accountId}
                 `;
             }
 

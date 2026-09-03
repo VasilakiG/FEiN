@@ -61,6 +61,18 @@ export type HistoryTransaction = {
     tags: string[]; // aggregated
 };
 
+export type HistoryTransactionBreakdown = {
+    transaction_breakdown_id: number;
+    transaction_account_id: number;
+    spent_amount: string;
+    earned_amount: string;
+};
+
+export type HistoryTransactionEditData = HistoryTransaction & {
+    amount: string;
+    breakdowns: HistoryTransactionBreakdown[];
+};
+
 function startOfMonth(d: Date) {
     return new Date(d.getFullYear(), d.getMonth(), 1);
 }
@@ -535,6 +547,89 @@ export async function getHistoryTransactions(params: {
     `;
 
     return rows;
+}
+
+export async function getHistoryTransactionById(params: {
+    userId: number;
+    transactionId: number;
+}) {
+    const rows = await sql<HistoryTransaction[]>`
+        SELECT
+            t.transaction_id,
+            t.transaction_name,
+            t.date::text AS date,
+            (
+                COALESCE(SUM(COALESCE(tb.earned_amount, 0)), 0)
+                -
+                COALESCE(SUM(COALESCE(tb.spent_amount, 0)), 0)
+            )::text AS net_amount,
+            COALESCE(
+                ARRAY_REMOVE(ARRAY_AGG(DISTINCT tg.tag_name), NULL),
+                ARRAY[]::text[]
+            ) AS tags
+        FROM transaction t
+        JOIN transaction_breakdown tb ON tb.transaction_id = t.transaction_id
+        JOIN transaction_account ta ON ta.transaction_account_id = tb.transaction_account_id
+        LEFT JOIN tag_assigned_to_transaction tat ON tat.transaction_id = t.transaction_id
+        LEFT JOIN tag tg ON tg.tag_id = tat.tag_id
+        WHERE ta.user_id = ${params.userId}
+            AND t.transaction_id = ${params.transactionId}
+        GROUP BY t.transaction_id, t.transaction_name, t.date
+        LIMIT 1
+    `;
+
+    return rows[0] ?? null;
+}
+
+export async function getHistoryTransactionEditData(params: {
+    userId: number;
+    transactionId: number;
+}) {
+    const transactionRows = await sql<HistoryTransactionEditData[]>`
+        SELECT
+            t.transaction_id,
+            t.transaction_name,
+            t.date::text AS date,
+            t.amount::text AS amount,
+            (
+                COALESCE(SUM(COALESCE(tb.earned_amount, 0)), 0)
+                -
+                COALESCE(SUM(COALESCE(tb.spent_amount, 0)), 0)
+            )::text AS net_amount,
+            COALESCE(
+                ARRAY_REMOVE(ARRAY_AGG(DISTINCT tg.tag_name), NULL),
+                ARRAY[]::text[]
+            ) AS tags
+        FROM transaction t
+        JOIN transaction_breakdown tb ON tb.transaction_id = t.transaction_id
+        JOIN transaction_account ta ON ta.transaction_account_id = tb.transaction_account_id
+        LEFT JOIN tag_assigned_to_transaction tat ON tat.transaction_id = t.transaction_id
+        LEFT JOIN tag tg ON tg.tag_id = tat.tag_id
+        WHERE ta.user_id = ${params.userId}
+            AND t.transaction_id = ${params.transactionId}
+        GROUP BY t.transaction_id, t.transaction_name, t.date, t.amount
+        LIMIT 1
+    `;
+
+    if (transactionRows.length === 0) {
+        return null;
+    }
+
+    const breakdowns = await sql<HistoryTransactionBreakdown[]>`
+        SELECT
+            transaction_breakdown_id,
+            transaction_account_id,
+            spent_amount::text AS spent_amount,
+            earned_amount::text AS earned_amount
+        FROM transaction_breakdown
+        WHERE transaction_id = ${params.transactionId}
+        ORDER BY transaction_breakdown_id ASC
+    `;
+
+    return {
+        ...transactionRows[0],
+        breakdowns,
+    };
 }
 
 export async function getHistoryTransactionPages(params: {
