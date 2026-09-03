@@ -3,7 +3,7 @@ import { notFound, redirect } from 'next/navigation';
 import Link from 'next/link';
 import { poppins } from '@/app/ui/fonts';
 import { getAllTags, getHistoryTransactionEditData, getUserTransactionAccounts } from '@/app/lib/queries';
-import AddTransactionForm from '@/app/(app)/add/add-transaction-form';
+import AddTransactionForm, { type Breakdown } from '@/app/(app)/add/add-transaction-form';
 import { updateHistoryTransaction } from '../../actions';
 
 export default async function EditTransactionPage(props: {
@@ -40,7 +40,7 @@ export default async function EditTransactionPage(props: {
     const note = tags.find((tag) => tag.startsWith('__note:'))?.slice('__note:'.length) ?? '';
     const selectedTags = tags.filter((tag) => !tag.startsWith('__note:'));
 
-    const initialBreakdowns = transaction.breakdowns.map((breakdown, index) => ({
+    const initialBreakdowns: Breakdown[] = transaction.breakdowns.map((breakdown, index) => ({
         id: breakdown.transaction_breakdown_id || index + 1,
         type: Number(breakdown.earned_amount) > 0 ? 'to' : 'from',
         accountId: breakdown.transaction_account_id,

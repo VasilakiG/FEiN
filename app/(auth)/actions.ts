@@ -64,7 +64,6 @@ export async function register(
     const hashed = await bcrypt.hash(password, 10);
 
     try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         await sql.begin(async (tx: any) => {
             const existing = await tx`SELECT user_id FROM "user" WHERE email=${email}`;
 

@@ -109,7 +109,6 @@ export async function deleteHistoryTransaction(formData: FormData) {
     }
 
     try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         await sql.begin(async (tx: any) => {
             const ownership = await tx`
                 SELECT t.transaction_id
@@ -194,7 +193,6 @@ export async function updateHistoryTransaction(
     }
 
     try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         await sql.begin(async (tx: any) => {
             const transactionRows = await tx`
                 SELECT t.transaction_id

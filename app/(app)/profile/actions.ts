@@ -31,7 +31,6 @@ export async function updateProfile(
     }
 
     try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         await sql.begin(async (tx: any) => {
             // Email already exists check
             const existing = await tx`

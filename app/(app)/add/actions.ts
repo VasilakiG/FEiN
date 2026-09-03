@@ -76,7 +76,6 @@ export async function addTag(
     }
 
     try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         await sql.begin(async (tx: any) => {
             // Check duplicate (case-insensitive)
             const existing = await tx`
@@ -201,7 +200,6 @@ export async function addTransaction(
 
     try {
         // Use a SQL transaction for atomicity
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         await sql.begin(async (tx: any) => {
             // 1. Insert transaction
             const [txRow] = await tx`

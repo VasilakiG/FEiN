@@ -17,7 +17,7 @@ import { Button } from '@/app/ui/button';
 type AccountOption = { transaction_account_id: number; account_name: string | null };
 type TagOption = { tag_id: number; tag_name: string };
 
-type Breakdown = {
+export type Breakdown = {
     id: number; // client-side key
     type: 'from' | 'to';
     accountId: number;
